@@ -10,7 +10,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let model = SearchModel()
     private let usageFile = UsageFile()
     private let capsule = CapsuleController()
-    private var activationObserver: NSObjectProtocol?
+    private var workspaceObservers: [NSObjectProtocol] = []
     private var settingsWindow: NSWindow?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -78,7 +78,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
-        usageFile.saveNow(model.usage)
+        usageFile.flush()
     }
 
     /// SwiftUI's `Settings` scene and `openSettings` do nothing from a `MenuBarExtra` in an app with
@@ -123,7 +123,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         case .launch(let app, let query, reveal: false):
             // An empty query (a Recent row) only updates frecency and recents, never a pick.
             model.usage.recordLaunch(of: app.id, query: QueryKeys(query), at: .now)
-            usageFile.scheduleSave(model.usage)
+            usageFile.changed(model.usage, .soon)  // carries a learned pick
             // Nothing is shown after opening an app: the app itself is the confirmation.
             panel.hide()
             let config = NSWorkspace.OpenConfiguration()
@@ -138,7 +138,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// Apps brought to the front some other way (Dock, ⌘Tab) count as recent too.
     private func noteActivations() {
-        activationObserver = NSWorkspace.shared.notificationCenter.addObserver(
+        let center = NSWorkspace.shared.notificationCenter
+        // Write anything pending before the Mac sleeps, logs out or switches user.
+        for name in [NSWorkspace.willSleepNotification, NSWorkspace.willPowerOffNotification,
+                     NSWorkspace.sessionDidResignActiveNotification] {
+            workspaceObservers.append(center.addObserver(forName: name, object: nil, queue: .main) { [usageFile] _ in
+                usageFile.flush()
+            })
+        }
+        workspaceObservers.append(center.addObserver(
             forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main
         ) { [weak self] note in
             let id = (note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication)?.bundleIdentifier
@@ -146,8 +154,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 debugNote("activation \(id ?? "?")")
                 guard let self, let id, id != Bundle.main.bundleIdentifier else { return }
                 self.model.usage.noteUse(of: id, at: .now)
-                self.usageFile.scheduleSave(self.model.usage)
+                self.usageFile.changed(self.model.usage, .eventually)  // Recent only
             }
-        }
+        })
     }
 }

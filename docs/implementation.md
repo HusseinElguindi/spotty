@@ -577,7 +577,7 @@ extension SearchModel {
         NSWorkspace.shared.openApplication(at: app.url, configuration: config) { _, error in
             if error != nil { Task { @MainActor in self.requestRescan() } }  // moved or deleted since the scan
         }
-        usageFile.scheduleSave(usage)
+        usageFile.changed(usage, .soon)
     }
 }
 ```
@@ -588,7 +588,7 @@ Cmd+Return calls `NSWorkspace.shared.activateFileViewerSelecting([app.url])` ins
 
 | File | Contents | Written |
 | --- | --- | --- |
-| `usage.json` | `UsageStore`: launch counters, the taught app per query and recent apps, a few kilobytes | Two seconds after the last launch, atomically, off the main thread |
+| `usage.json` | `UsageStore`: launch counters, the taught app per query and recent apps, a few kilobytes | Two seconds after the last launch from the panel. App switches only touch Recent, so they are gathered into at most one write a minute (`SaveThrottle`). Pending changes are flushed on quit, sleep, log out and user switch; an unchanged file is not rewritten. Atomically, off the main thread |
 | `aliases.json` | `{"com.microsoft.VSCode": ["vs", "editor"]}`, by bundle ID | By the Settings window; you can also edit it by hand |
 
 A missing or unreadable file means "start empty", never a crash. Keep the previous good copy as `usage.json.bak` so a bad write loses at most one launch.

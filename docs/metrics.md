@@ -74,7 +74,7 @@ with no Spotty types among them, so they come from Apple frameworks, not from Sp
 | `build/Spotty.app` | 1.0 MB (the binary is all of it) |
 | `usage.json` | 1.8 KB |
 | `usage.json.bak` | 1.8 KB |
-| Writes | One save 2 s after the last launch or app switch, coalesced: about 3.6 KB per save (the new file plus copying the old one to `.bak`) |
+| Writes | About 3.6 KB per save (the new file plus copying the old one to `.bak`). A launch from the panel saves 2 s later; app switches are gathered into at most one save a minute, and flushed on quit, sleep and log out |
 
 ## Read
 
