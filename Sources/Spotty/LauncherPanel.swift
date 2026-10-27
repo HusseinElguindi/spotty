@@ -1,4 +1,5 @@
 import AppKit
+import LauncherCore
 import SwiftUI
 import os
 
@@ -30,7 +31,8 @@ final class LauncherPanel: NSPanel {
 }
 
 /// Shows, hides, places and sizes the launcher panel. The SwiftUI content reports its own
-/// height and the panel grows downwards from a fixed top edge.
+/// height and the panel grows downwards from a fixed top edge. Dragging the panel moves that
+/// edge, with guides to snap back to the standard spot, and the next open keeps the new spot.
 @MainActor
 final class PanelController: NSObject, NSWindowDelegate {
     /// Replaced by `rebuild` when the window server stops showing it on every Space.
@@ -44,6 +46,16 @@ final class PanelController: NSObject, NSWindowDelegate {
     private(set) var outsideClickMonitor: Any?
     /// The panel's top edge in screen coordinates while it is shown.
     private var top: CGFloat = 0
+    /// Where the panel opens, saved across launches. Kept here, not on the window, so a rebuild keeps it.
+    private var placement = PanelController.savedPlacement
+    /// The visible area of the screen the panel is shown on.
+    private var visible = NSRect.zero
+    /// The pointer and the panel's centre and top edge, all in screen points, when a drag began.
+    private var dragStart: (pointer: NSPoint, midX: CGFloat, top: CGFloat)?
+    private let guides = PanelGuides()
+    /// Room kept below the top edge for the tallest tray (six rows and a why line), so dragging
+    /// the panel low never pushes results off the screen.
+    private static let tallest: CGFloat = 340
     private(set) var isShown = false
     /// False only in benchmarks, so the panel shows without taking the keyboard from whoever is typing.
     var takesKey = true
@@ -59,9 +71,16 @@ final class PanelController: NSObject, NSWindowDelegate {
 
     init<Content: View>(content: Content) {
         var onHeight: (() -> Void)?
+        var onDrag: ((DragGesture.Value?) -> Void)?
         let root = content
             .fixedSize(horizontal: false, vertical: true)
             .onGeometryChange(for: CGFloat.self, of: { $0.size.height }) { _ in onHeight?() }
+            // Anywhere but the field's text moves the panel; a click without movement still
+            // reaches the row or button under it.
+            .contentShape(.rect(cornerRadius: 16))
+            .gesture(DragGesture(minimumDistance: 3, coordinateSpace: .global)
+                .onChanged { onDrag?($0) }
+                .onEnded { _ in onDrag?(nil) })
         let host = NSHostingController(rootView: AnyView(root))
         // The panel sets its own frame from the content's height, so the hosting view mustn't
         // add size constraints of its own. That also leaves its `fittingSize` at zero: measure
@@ -88,6 +107,10 @@ final class PanelController: NSObject, NSWindowDelegate {
         }
         // A backstop: contentChanged() normally resizes before SwiftUI draws.
         onHeight = { [weak self] in self?.contentChanged() }
+        onDrag = { [weak self] value in
+            guard let self else { return }
+            if let value { self.dragged(from: value.startLocation, to: value.location) } else { self.endDrag() }
+        }
     }
 
     func toggle() { isShown ? hide() : show() }
@@ -98,13 +121,13 @@ final class PanelController: NSObject, NSWindowDelegate {
         if needsRebuild { rebuild("the displays changed or woke") }
         willShow?()
         let screen = NSScreen.screens.first { $0.frame.contains(NSEvent.mouseLocation) } ?? NSScreen.main
-        let visible = screen?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
-        // The top edge is fixed for the whole open; every resize hangs the window from it.
-        top = (visible.maxY - visible.height / 3).rounded()
+        visible = screen?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
+        // The top edge is fixed for the whole open, unless dragged; every resize hangs the window from it.
+        let midX: CGFloat
+        (midX, top) = placement.resolve(in: visible, width: 560, tallest: Self.tallest)
         // Measured now, for the content willShow just reset, so the window opens at the right height.
         let height = max(contentHeight, 58)
-        panel.setFrame(NSRect(x: (visible.midX - 280).rounded(), y: top - height, width: 560, height: height),
-                       display: false)
+        panel.setFrame(NSRect(x: midX - 280, y: top - height, width: 560, height: height), display: false)
 
         // Appears at once, at its final size: no fade, no movement. Never activates Spotty.
         focusField()
@@ -186,6 +209,7 @@ final class PanelController: NSObject, NSWindowDelegate {
     func hide() {
         guard isShown else { return }
         isShown = false
+        endDrag()
         removeKeyMonitor()
         if let outsideClickMonitor { NSEvent.removeMonitor(outsideClickMonitor) }
         outsideClickMonitor = nil
@@ -217,6 +241,60 @@ final class PanelController: NSObject, NSWindowDelegate {
             panel.setFrame(NSRect(x: panel.frame.minX, y: top - height, width: 560, height: height), display: true)
         }
         panel.invalidateShadow()
+    }
+
+    // MARK: Dragging
+
+    /// Moves the panel so the point grabbed stays under the pointer, sticking to a guide when it
+    /// comes close. Both points are in the content's own coordinates, top-left origin, measured
+    /// where the panel is now; `start` is where the mouse went down.
+    private func dragged(from start: CGPoint, to location: CGPoint) {
+        guard isShown else { return }
+        let frame = panel.frame
+        func onScreen(_ p: CGPoint) -> NSPoint { NSPoint(x: frame.minX + p.x, y: frame.maxY - p.y) }
+        let pointer = onScreen(location)
+        if dragStart == nil {
+            // The panel hasn't moved yet, so the mouse-down point converts as it is.
+            dragStart = (onScreen(start), frame.midX, top)
+            if let screen = NSScreen.screens.first(where: { $0.visibleFrame == visible }) ?? panel.screen {
+                guides.show(on: screen, visible: visible, width: 560, tallest: Self.tallest, below: panel)
+            }
+        }
+        guard let start = dragStart else { return }
+        let (placed, snapped) = PanelPlacement.dragged(midX: start.midX + pointer.x - start.pointer.x,
+                                                       top: start.top + pointer.y - start.pointer.y,
+                                                       in: visible, width: 560, tallest: Self.tallest)
+        placement = placed
+        guides.update(snapped: snapped)
+        let midX: CGFloat
+        (midX, top) = placed.resolve(in: visible, width: 560, tallest: Self.tallest)
+        let origin = NSPoint(x: midX - 280, y: top - frame.height)
+        guard origin != frame.origin else { return }
+        panel.setFrameOrigin(origin)
+    }
+
+    private func endDrag() {
+        guard dragStart != nil else { return }
+        dragStart = nil
+        guides.hide()
+        Self.savedPlacement = placement
+    }
+
+    private static let placementKey = "panelPlacement"
+
+    /// Where the panel opens; the standard spot unless it was dragged somewhere else.
+    private static var savedPlacement: PanelPlacement {
+        get {
+            UserDefaults.standard.data(forKey: placementKey)
+                .flatMap { try? JSONDecoder().decode(PanelPlacement.self, from: $0) } ?? .standard
+        }
+        set {
+            if newValue == .standard {
+                UserDefaults.standard.removeObject(forKey: placementKey)
+            } else if let data = try? JSONEncoder().encode(newValue) {
+                UserDefaults.standard.set(data, forKey: placementKey)
+            }
+        }
     }
 
     /// True while an input method is composing, when every key belongs to it.

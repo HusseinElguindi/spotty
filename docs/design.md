@@ -7,8 +7,13 @@ This file copies what the Swift code needs. Sizes are in points.
 ## Behaviour
 
 - Opens on ⌘Space once Spotlight's own shortcut is turned off, on the screen that has the pointer,
-  centred and a third of the way down.
+  centred and a third of the way down unless you have moved it.
 - Closes when an app opens, on a second Esc, or when you click anywhere else.
+- Drag it by anything but the field's text to move it. While you drag, two guides show: the
+  screen's centre line and the line the standard top edge sits on. Within 12 pt of either, the
+  panel sticks to it, so the standard spot is easy to find again. The guides are dashed in ink-4,
+  and solid indigo while the panel sticks. Every later open, and relaunch, uses the new spot,
+  scaled to the screen it opens on. The panel never moves so low that six results would run off the screen.
 - Closing with ⌘Space keeps what you typed. The next open shows it again, all selected, so typing
   replaces it. Every other way of closing clears the field.
 - An empty field lists your five most recent apps, with ⌘1 to ⌘5 beside them.
