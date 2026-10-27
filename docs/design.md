@@ -81,7 +81,7 @@ Follow the system appearance.
 | What | How | Time | Curve |
 | --- | --- | --- | --- |
 | Open | Appears at once at its final size, no fade or drop (Hussein, 2026-10-27) | 0 | none |
-| Close | Fade out | 90 ms | ease-out |
+| Close | Fade out (shortened from 90 ms, Hussein, 2026-10-27) | 50 ms | ease-out |
 | Selection | Moves at once, no slide | 0 | none |
 | Completion | Appears with each keystroke | 0 | none |
 | Capsule | Pops in, holds 1.4 s, fades | 130 ms | strong ease-out |

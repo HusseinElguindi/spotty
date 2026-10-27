@@ -87,7 +87,7 @@ final class PanelController: NSObject, NSWindowDelegate {
         isShown = false
         removeKeyMonitor()
         NSAnimationContext.runAnimationGroup({ context in
-            context.duration = 0.09
+            context.duration = 0.05
             context.timingFunction = CAMediaTimingFunction(name: .easeOut)
             panel.animator().alphaValue = 0
         }, completionHandler: {
