@@ -25,8 +25,8 @@ struct AppRow: Identifiable, Equatable {
 
 /// What Return (or ⌘↩, ⌘C, ⌘1–⌘5) asked for. The app delegate carries it out.
 enum Activation {
-    /// `query` is what was typed, `picked` the row's position: anything but 0 teaches the query.
-    case launch(AppEntry, query: String, picked: Int, reveal: Bool)
+    /// `query` is what was typed; opening any app for it teaches the query to put that app first.
+    case launch(AppEntry, query: String, reveal: Bool)
     case copy(display: String, text: String)
 }
 
@@ -109,9 +109,9 @@ final class SearchModel {
         case .math(_, .value(_, let display, let copy)):
             onActivate?(.copy(display: display, text: copy))
         case .recent(let apps) where apps.indices.contains(selection):
-            onActivate?(.launch(apps[selection], query: "", picked: selection, reveal: reveal))
+            onActivate?(.launch(apps[selection], query: "", reveal: reveal))
         case .apps(let rows) where rows.indices.contains(selection):
-            onActivate?(.launch(rows[selection].app, query: query, picked: selection, reveal: reveal))
+            onActivate?(.launch(rows[selection].app, query: query, reveal: reveal))
         default:
             break  // an unfinished sum, an error, or no match: Return does nothing
         }

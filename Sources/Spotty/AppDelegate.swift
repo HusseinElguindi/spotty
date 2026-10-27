@@ -113,16 +113,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             NSPasteboard.general.setString(text, forType: .string)  // "1467.87", never "1,467.87"
             panel.hide()
             say("Copied \(display)")
-        case .launch(let app, _, _, reveal: true):
+        case .launch(let app, _, reveal: true):
             panel.hide()
             NSWorkspace.shared.activateFileViewerSelecting([app.url])
-        case .launch(let app, let query, let picked, reveal: false):
-            let typed = query.trimmingCharacters(in: .whitespaces)
+        case .launch(let app, let query, reveal: false):
             // An empty query (a Recent row) only updates frecency and recents, never a pick.
-            let taught = model.usage.recordLaunch(of: app.id, query: QueryKeys(typed), at: .now)
+            model.usage.recordLaunch(of: app.id, query: QueryKeys(query), at: .now)
             usageFile.scheduleSave(model.usage)
+            // Nothing is shown after opening an app: the app itself is the confirmation.
             panel.hide()
-            say(taught && picked > 0 ? "“\(typed)” now opens \(app.name) first." : "Opening \(app.name)")
             let config = NSWorkspace.OpenConfiguration()
             config.activates = true
             NSWorkspace.shared.openApplication(at: app.url, configuration: config) { _, error in

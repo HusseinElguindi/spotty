@@ -12,7 +12,7 @@ This file copies what the Swift code needs. Sizes are in points.
 - An empty field lists your five most recent apps, with ⌘1 to ⌘5 beside them.
 - A search shows at most six rows. Matched letters are drawn in ink-1 at weight 600.
 - Picking anything but the top result teaches that query. The why line says so before you press
-  Return, and a capsule confirms it after.
+  Return. Nothing shows after an app opens (Hussein, 2026-10-27): the app itself is the confirmation.
 - Anything with a digit and an operator is a sum. A sum replaces the app list with the math tray.
   While it is unfinished, the tray shows the value so far in ink-3.
 
@@ -28,7 +28,7 @@ This file copies what the Swift code needs. Sizes are in points.
 | 6 | Why line | 11 / 14 in ink-4 after an indigo sparkle. Says why the top result is first, or what Return is about to teach. |
 | 7 | Math tray | wash with a 0.5 pt ring, radius 12. Expression 12 / 18 in ink-3. Result 42 / 600, −1.47 tracking, separators (`,` and `.`) in ink-4. |
 | 8 | Copy | The one filled button in a view: accent with on-accent text, full radius, 30 tall. Label "Copy" plus a ↩ glyph. |
-| 9 | Capsule | plate with shadow-popover, full radius, 36 tall, in place of the closed panel. Says what just happened, then fades. |
+| 9 | Capsule | plate with shadow-popover, full radius, 36 tall, in place of the closed panel. Confirms a copied sum, then fades. Never shown after opening an app. |
 
 ## Type
 
@@ -91,8 +91,6 @@ Follow the system appearance.
 
 - Why line, top row taught: `Safari is first because you picked it for “sa” 9 times.` (`1 time` when singular)
 - Why line, another row selected: `Opening this teaches “ma” to put Maps first.`
-- Capsule after teaching: `“ma” now opens Maps first.`
-- Capsule after opening: `Opening Safari`
 - Capsule after copying: `Copied 1,467.87`
 - Completion that doesn't continue the typed text: `  →  Visual Studio Code`
 - Nothing found: `Nothing matches “zzz”.`
