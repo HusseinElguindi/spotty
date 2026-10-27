@@ -4,7 +4,7 @@
 #
 #   scripts/bundle.sh            # version 0.1.0
 #   scripts/bundle.sh 1.2.0      # or VERSION=1.2.0 scripts/bundle.sh
-set -eu
+set -euo pipefail
 cd "$(dirname "$0")/.."
 version=${1:-${VERSION:-0.1.0}}
 
@@ -53,4 +53,14 @@ cat > "$app/Contents/Info.plist" <<PLIST
 PLIST
 
 codesign --force --deep --sign - "$app"
-echo "Built $app $version ($(lipo -archs "$app/Contents/MacOS/Spotty"))"
+
+# Refuse to call it built unless it is complete: an earlier run once left an unsigned app
+# without its icon when actool failed quietly.
+fail() { echo "bundle.sh: $1" >&2; exit 1; }
+codesign --verify --deep --strict "$app" || fail "the signature does not verify"
+[ -f "$app/Contents/Resources/Assets.car" ] || [ -f "$app/Contents/Resources/AppIcon.icns" ] || fail "the icon is missing"
+archs=$(lipo -archs "$app/Contents/MacOS/Spotty")
+case " $archs " in *" arm64 "*) ;; *) fail "no arm64 in the binary ($archs)" ;; esac
+case " $archs " in *" x86_64 "*) ;; *) fail "no x86_64 in the binary ($archs)" ;; esac
+[ "$(plutil -extract CFBundleShortVersionString raw "$app/Contents/Info.plist")" = "$version" ] || fail "the version is not $version"
+echo "Built $app $version ($archs)"

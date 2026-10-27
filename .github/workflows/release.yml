@@ -13,7 +13,7 @@ jobs:
     # or newer (isolated deinit), which the older macos-latest images don't have.
     runs-on: xcode-27
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Select Xcode 27.1
         run: |
