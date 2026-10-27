@@ -33,9 +33,6 @@ final class PanelController: NSObject, NSWindowDelegate {
     /// The panel's top edge in screen coordinates while it is shown.
     private var top: CGFloat = 0
     private(set) var isShown = false
-    /// Drives the 4 pt drop on open. It moves the content, never the window, so a resize can
-    /// land mid-animation without fighting it.
-    private let motion = PanelMotion()
 
     /// Called just before the panel appears, so the content can reset itself.
     var willShow: (() -> Void)?
@@ -48,11 +45,9 @@ final class PanelController: NSObject, NSWindowDelegate {
 
     init<Content: View>(content: Content) {
         var onHeight: (() -> Void)?
-        let root = DropIn(motion: motion) {
-            content
-                .fixedSize(horizontal: false, vertical: true)
-                .onGeometryChange(for: CGFloat.self, of: { $0.size.height }) { _ in onHeight?() }
-        }
+        let root = content
+            .fixedSize(horizontal: false, vertical: true)
+            .onGeometryChange(for: CGFloat.self, of: { $0.size.height }) { _ in onHeight?() }
         let host = NSHostingController(rootView: AnyView(root))
         // The panel sets its own frame from the content's height, so the hosting view mustn't
         // add size constraints of its own. That also leaves its `fittingSize` at zero: measure
@@ -80,23 +75,11 @@ final class PanelController: NSObject, NSWindowDelegate {
         let height = max(contentHeight, 58)
         panel.setFrame(NSRect(x: (visible.midX - 280).rounded(), y: top - height, width: 560, height: height),
                        display: false)
-        let reduceMotion = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
 
-        panel.alphaValue = 0
-        motion.dropped = reduceMotion
+        // Appears at once, at its final size: no fade, no movement.
+        panel.alphaValue = 1
         panel.makeKeyAndOrderFront(nil)
         installKeyMonitor()
-        NSAnimationContext.runAnimationGroup { context in
-            context.duration = 0.12
-            context.timingFunction = CAMediaTimingFunction(controlPoints: 0.16, 1, 0.3, 1)
-            panel.animator().alphaValue = 1
-        }
-        if !reduceMotion {
-            // Next turn, so SwiftUI has drawn the raised content to animate from.
-            DispatchQueue.main.async {
-                withAnimation(.timingCurve(0.16, 1, 0.3, 1, duration: 0.12)) { self.motion.dropped = true }
-            }
-        }
     }
 
     func hide() {
@@ -165,17 +148,3 @@ final class PanelController: NSObject, NSWindowDelegate {
     func windowDidResignKey(_ notification: Notification) { hide() }
 }
 
-@MainActor @Observable
-private final class PanelMotion {
-    var dropped = true
-}
-
-/// Holds the content 4 pt high until the open animation lets it drop into place.
-private struct DropIn<Content: View>: View {
-    let motion: PanelMotion
-    @ViewBuilder let content: Content
-
-    var body: some View {
-        content.offset(y: motion.dropped ? 0 : -4)
-    }
-}
