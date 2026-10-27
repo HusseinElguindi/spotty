@@ -47,19 +47,21 @@ System font (SF Pro) throughout.
 
 ## Colour tokens
 
+Colours follow Hussein's Rex terminal theme. Rex is dark only, so light is derived from the same GitHub Light family.
+
 | Token | Dark | Light | Used for |
 | --- | --- | --- | --- |
-| panel | #0D0E10 | #F9FAFB | The panel |
-| ink-1 | #F7F8F8 | #14161B | Typed text, selected row, result |
-| ink-2 | #C7CBD2 | #2F3339 | Row names, counts |
-| ink-3 | #B3B8C1 | #44484E | Section labels, expression, magnifier |
-| ink-4 | #9A9FA6 | #5D6167 | Completion, why line, ⌘ numbers, separators |
+| panel | #1C1C1C | #F6F8FA | The panel |
+| ink-1 | #E6EDF3 | #1F2328 | Typed text, selected row, result |
+| ink-2 | #C9D1D9 | #31363C | Row names, counts |
+| ink-3 | #B1BAC4 | #424A53 | Section labels, expression, magnifier |
+| ink-4 | #8B949E | #59636E | Completion, why line, ⌘ numbers, separators |
 | fill-selected | white 10% | black 6% | Selected row, with a 1 pt ring (white 16% / black 12%) |
 | fill-quiet | white 8% | black 6% | Keycaps |
 | wash | white 5% | black 4.5% | Math tray (ring white 7% / black 7%) |
-| plate | #2B2D30 | #FBFCFD | Capsule |
-| indigo | #7C89F5 | #5E6AD2 | Sparkle: the app noticed something |
-| accent | #F7F8F8 | #14161B | Copy button; its text is on-accent (#08090A dark, #FBFCFD light) |
+| plate | #2A2A2A | #FFFFFF | Capsule |
+| indigo | #58A6FF | #0969DA | Sparkle: the app noticed something |
+| accent | #E6EDF3 | #1F2328 | Copy button; its text is on-accent (#0D1117 dark, #FFFFFF light) |
 
 Panel shadow: dark has a 0.5 pt inner ring of white 10% and a soft drop shadow (0 24 48, black 55%);
 light has a 0.5 pt inner ring of black 10% and a drop shadow (0 20 50, black 35%).
