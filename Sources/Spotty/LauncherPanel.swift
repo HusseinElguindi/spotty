@@ -79,16 +79,42 @@ final class PanelController: NSObject, NSWindowDelegate {
                        display: false)
 
         // Appears at once, at its final size: no fade, no movement.
+        focusField()
         if takesKey { panel.makeKeyAndOrderFront(nil) } else { panel.orderFrontRegardless() }
         installKeyMonitor()
+    }
+
+    /// Creates the window's backing and lays out the content once, invisibly, so the first ⌘Space
+    /// costs no more than later ones.
+    func prewarm() {
+        guard !isShown else { return }
+        willShow?()
+        panel.setFrame(NSRect(x: 0, y: 0, width: 560, height: max(contentHeight, 58)), display: false)
+        panel.alphaValue = 0
+        panel.orderFrontRegardless()
+        panel.contentView?.displayIfNeeded()
+        focusField()
+        panel.orderOut(nil)
+        panel.alphaValue = 1
+    }
+
+    /// Makes the search field first responder right away, rather than a run-loop turn later
+    /// through SwiftUI's focus state, so a key typed straight after ⌘Space isn't lost.
+    private func focusField() {
+        guard !(panel.firstResponder is NSTextView) else { return }
+        func field(in view: NSView) -> NSTextField? {
+            if let field = view as? NSTextField, field.isEditable { return field }
+            return view.subviews.lazy.compactMap(field(in:)).first
+        }
+        if let field = panel.contentView.flatMap(field(in:)) { panel.makeFirstResponder(field) }
     }
 
     func hide() {
         guard isShown else { return }
         isShown = false
         removeKeyMonitor()
-        // Gone at once, no fade, so it stops taking input immediately.
-        panel.makeFirstResponder(nil)
+        // Gone at once, so it stops taking input immediately. The field stays first responder in
+        // the hidden window, so it takes typing the instant the panel next becomes key.
         panel.orderOut(nil)
         didHide?()
     }

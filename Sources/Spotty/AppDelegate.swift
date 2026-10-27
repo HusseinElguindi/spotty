@@ -19,7 +19,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         model.usage = usageFile.load()
         noteActivations()
 
-        indexer.onChange = { [weak self] in self?.model.index = $0 }
+        indexer.onChange = { [weak self] index in
+            guard let self else { return }
+            let first = model.index.scan.apps.isEmpty
+            model.index = index
+            if first { panel?.prewarm() }
+        }
         indexer.start()
 
         let panel = PanelController(content: SearchView(model: model))
