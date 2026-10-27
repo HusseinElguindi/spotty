@@ -9,6 +9,8 @@ This file copies what the Swift code needs. Sizes are in points.
 - Opens on ⌘Space once Spotlight's own shortcut is turned off, on the screen that has the pointer,
   centred and a third of the way down.
 - Closes when an app opens, on a second Esc, or when you click anywhere else.
+- Closing with ⌘Space keeps what you typed. The next open shows it again, all selected, so typing
+  replaces it. Every other way of closing clears the field.
 - An empty field lists your five most recent apps, with ⌘1 to ⌘5 beside them.
 - A search shows at most six rows. Matched letters are drawn in ink-1 at weight 600.
 - Picking anything but the top result teaches that query. The why line says so before you press

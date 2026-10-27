@@ -12,6 +12,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let capsule = CapsuleController()
     private var workspaceObservers: [NSObjectProtocol] = []
     private var settingsWindow: NSWindow?
+    /// True while ⌘Space closes the panel, so the query outlives the close and comes back selected.
+    private var keepsQuery = false
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Info.plist sets LSUIElement; this covers `swift run`, which has no Info.plist.
@@ -32,11 +34,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         panel.willShow = { [weak self] in
             guard let self else { return }
             indexer.checkIfStale()
-            model.query = ""
             model.refresh()
             model.notePointer()
         }
-        panel.didHide = { [weak self] in self?.model.query = "" }
+        panel.didHide = { [weak self] in
+            guard let self, !keepsQuery else { return }
+            model.query = ""
+        }
         panel.keyHandler = { [weak self] in self?.handleKey($0) ?? false }
         panel.composingChanged = { [weak self] in self?.model.isComposing = $0 }
         model.onActivate = { [weak self] in self?.perform($0) }
@@ -50,7 +54,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func togglePanel() {
-        if panel?.isShown == true { panel?.hide() } else { showPanel() }
+        guard panel?.isShown == true else { return showPanel() }
+        // Every other way of closing clears the field; ⌘Space keeps it for the next open.
+        keepsQuery = true
+        panel?.hide()
+        keepsQuery = false
     }
 
     func showPanel() {

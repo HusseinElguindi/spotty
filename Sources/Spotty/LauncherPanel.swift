@@ -48,7 +48,7 @@ final class PanelController: NSObject, NSWindowDelegate {
     /// False only in benchmarks, so the panel shows without taking the keyboard from whoever is typing.
     var takesKey = true
 
-    /// Called just before the panel appears, so the content can reset itself.
+    /// Called just before the panel appears, so the content can refresh itself.
     var willShow: (() -> Void)?
     /// Called once the panel is gone.
     var didHide: (() -> Void)?
@@ -171,13 +171,16 @@ final class PanelController: NSObject, NSWindowDelegate {
 
     /// Makes the search field first responder right away, rather than a run-loop turn later
     /// through SwiftUI's focus state, so a key typed straight after ⌘Space isn't lost.
+    /// Also selects the field's text, so a query kept from the last open is replaced by typing.
     private func focusField() {
-        guard !(panel.firstResponder is NSTextView) else { return }
         func field(in view: NSView) -> NSTextField? {
             if let field = view as? NSTextField, field.isEditable { return field }
             return view.subviews.lazy.compactMap(field(in:)).first
         }
-        if let field = panel.contentView.flatMap(field(in:)) { panel.makeFirstResponder(field) }
+        if !(panel.firstResponder is NSTextView), let field = panel.contentView.flatMap(field(in:)) {
+            panel.makeFirstResponder(field)
+        }
+        (panel.firstResponder as? NSTextView)?.selectAll(nil)
     }
 
     func hide() {
