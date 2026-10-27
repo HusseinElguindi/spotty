@@ -33,6 +33,9 @@ final class PanelController: NSObject, NSWindowDelegate {
     /// The panel's top edge in screen coordinates while it is shown.
     private var top: CGFloat = 0
     private(set) var isShown = false
+    /// The content's latest height, and whether the open animation still owns the frame.
+    private var height: CGFloat = 58
+    private var opening = false
 
     /// Called just before the panel appears, so the content can reset itself.
     var willShow: (() -> Void)?
@@ -40,10 +43,13 @@ final class PanelController: NSObject, NSWindowDelegate {
     var didHide: (() -> Void)?
     /// Gets every key press while the panel is key; returns true when it handled the key.
     var keyHandler: ((NSEvent) -> Bool)?
+    /// Told after every key whether an input method is now composing.
+    var composingChanged: ((Bool) -> Void)?
 
     init<Content: View>(content: Content) {
         var onHeight: ((CGFloat) -> Void)?
         let root = content
+            .fixedSize(horizontal: false, vertical: true)
             .onGeometryChange(for: CGFloat.self, of: { $0.size.height }) { onHeight?($0) }
             .frame(maxHeight: .infinity, alignment: .top)
         let host = NSHostingView(rootView: root)
@@ -64,7 +70,7 @@ final class PanelController: NSObject, NSWindowDelegate {
         host.layoutSubtreeIfNeeded()
         let screen = NSScreen.screens.first { $0.frame.contains(NSEvent.mouseLocation) } ?? NSScreen.main
         let visible = screen?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
-        let height = max(host.fittingSize.height, 58)
+        height = max(host.fittingSize.height, 58)
         top = (visible.maxY - visible.height / 3).rounded()
         let frame = NSRect(x: (visible.midX - 280).rounded(), y: top - height, width: 560, height: height)
         let reduceMotion = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
@@ -73,12 +79,18 @@ final class PanelController: NSObject, NSWindowDelegate {
         panel.setFrame(reduceMotion ? frame : frame.offsetBy(dx: 0, dy: 4), display: false)
         panel.makeKeyAndOrderFront(nil)
         installKeyMonitor()
-        NSAnimationContext.runAnimationGroup { context in
+        opening = true
+        NSAnimationContext.runAnimationGroup({ context in
             context.duration = 0.12
             context.timingFunction = CAMediaTimingFunction(controlPoints: 0.16, 1, 0.3, 1)
             panel.animator().alphaValue = 1
             if !reduceMotion { panel.animator().setFrame(frame, display: true) }
-        }
+        }, completionHandler: {
+            MainActor.assumeIsolated {
+                self.opening = false
+                self.applyHeight()  // whatever was typed during the animation
+            }
+        })
     }
 
     func hide() {
@@ -100,7 +112,12 @@ final class PanelController: NSObject, NSWindowDelegate {
 
     /// Keeps the top edge still: AppKit measures windows from the bottom-left corner.
     private func setHeight(_ height: CGFloat) {
-        guard isShown, abs(panel.frame.height - height) > 0.5 else { return }
+        self.height = height
+        if !opening { applyHeight() }
+    }
+
+    private func applyHeight() {
+        guard isShown, abs(panel.frame.height - height) > 0.5 || abs(panel.frame.maxY - top) > 0.5 else { return }
         panel.setFrame(NSRect(x: panel.frame.minX, y: top - height, width: 560, height: height), display: true)
         panel.invalidateShadow()
     }
@@ -114,7 +131,12 @@ final class PanelController: NSObject, NSWindowDelegate {
         guard keyMonitor == nil else { return }
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             let handled = MainActor.assumeIsolated {
-                guard let self, event.window === self.panel, !self.isComposing else { return false }
+                guard let self, event.window === self.panel else { return false }
+                DispatchQueue.main.async { [weak self] in
+                    guard let self else { return }
+                    self.composingChanged?(self.isComposing)
+                }
+                guard !self.isComposing else { return false }
                 return self.keyHandler?(event) == true
             }
             return handled ? nil : event

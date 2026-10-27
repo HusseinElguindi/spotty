@@ -19,7 +19,7 @@ private struct MenuContent: View {
     @Environment(\.openSettings) private var openSettings
 
     var body: some View {
-        Button("Open Spotty") { delegate.panel?.show() }
+        Button("Open Spotty") { delegate.showPanel() }
         if delegate.hotKey?.isRegistered == false {
             Text("⌘Space is taken by another app")
         }
