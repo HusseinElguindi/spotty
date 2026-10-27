@@ -89,7 +89,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             window.title = "Spotty Settings"
             window.styleMask = [.titled, .closable]
             window.isReleasedWhenClosed = false
+            // Comes to the Space you are on rather than sending you to the one it was opened on.
+            window.collectionBehavior = [.moveToActiveSpace]
             window.center()
+            // Closing lets it go, so Spotty never keeps an ordinary window parked on some Space.
+            NotificationCenter.default.addObserver(forName: NSWindow.willCloseNotification, object: window, queue: .main) { [weak self] _ in
+                MainActor.assumeIsolated { self?.settingsWindow = nil }
+            }
             settingsWindow = window
             return window
         }()

@@ -9,7 +9,7 @@ final class LauncherPanel: NSPanel {
                    styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: true)
         isFloatingPanel = true
         level = .modalPanel
-        collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .ignoresCycle]
+        collectionBehavior = Self.everySpace
         isOpaque = false
         backgroundColor = .clear
         hasShadow = true
@@ -21,6 +21,18 @@ final class LauncherPanel: NSPanel {
 
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { false }
+
+    /// On every Space and over full-screen apps, never in ⌘` cycling.
+    static let everySpace: NSWindow.CollectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .ignoresCycle]
+
+    /// After Spotty has run a while, the window server can lose track of the panel belonging to
+    /// every Space and pin it to one (seen: pinned to Space 1, so ⌘Space pulled you there).
+    /// Setting the behaviour afresh before each show re-registers it; assigning the same value
+    /// would be a no-op, hence the round trip through an empty set.
+    func rejoinEverySpace() {
+        collectionBehavior = []
+        collectionBehavior = Self.everySpace
+    }
 }
 
 /// Shows, hides, places and sizes the launcher panel. The SwiftUI content reports its own
@@ -78,7 +90,8 @@ final class PanelController: NSObject, NSWindowDelegate {
         panel.setFrame(NSRect(x: (visible.midX - 280).rounded(), y: top - height, width: 560, height: height),
                        display: false)
 
-        // Appears at once, at its final size: no fade, no movement.
+        // Appears at once, at its final size: no fade, no movement. Never activates Spotty.
+        panel.rejoinEverySpace()
         focusField()
         if takesKey { panel.makeKeyAndOrderFront(nil) } else { panel.orderFrontRegardless() }
         installKeyMonitor()
