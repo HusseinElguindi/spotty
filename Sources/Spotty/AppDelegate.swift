@@ -8,15 +8,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private(set) var hotKey: HotKey?
     let indexer = Indexer()
     let model = SearchModel()
-    private let usageFile: UsageFile = {
-        #if DEBUG
-        // Lets a second, traced instance run beside the real app without touching its data.
-        if let path = ProcessInfo.processInfo.environment["SPOTTY_USAGE_FILE"] {
-            return UsageFile(url: URL(fileURLWithPath: path))
-        }
-        #endif
-        return UsageFile()
-    }()
+    private let usageFile = UsageFile()
     private let capsule = CapsuleController()
     private var workspaceObservers: [NSObjectProtocol] = []
     private var settingsWindow: NSWindow?
@@ -35,7 +27,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         panel.willShow = { [weak self] in
             guard let self else { return }
             indexer.checkIfStale()
-            model.begin()
             model.query = ""
             model.refresh()
             model.notePointer()

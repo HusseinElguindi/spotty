@@ -42,13 +42,6 @@ final class SearchModel {
     var index = AppIndex.empty { didSet { refresh() } }
     var usage = UsageStore()
     @ObservationIgnored var onActivate: ((Activation) -> Void)?
-    /// One activation per opening of the panel: a second Return, click or ⌘1–⌘5 does nothing.
-    @ObservationIgnored private var activated = false
-
-    /// Called each time the panel opens.
-    func begin() {
-        activated = false
-    }
     /// Told after every change to the tray or selection (the why line comes and goes with it),
     /// so the panel can resize before SwiftUI draws the change.
     @ObservationIgnored var onContentChange: (() -> Void)?
@@ -129,22 +122,16 @@ final class SearchModel {
     }
 
     func activateSelection(reveal: Bool = false) {
-        guard !activated else { return }
         switch tray {
         case .math(_, .value(_, let display, let copy)):
-            fire(.copy(display: display, text: copy))
+            onActivate?(.copy(display: display, text: copy))
         case .recent(let apps) where apps.indices.contains(selection):
-            fire(.launch(apps[selection], query: "", reveal: reveal))
+            onActivate?(.launch(apps[selection], query: "", reveal: reveal))
         case .apps(let rows) where rows.indices.contains(selection):
-            fire(.launch(rows[selection].app, query: query, reveal: reveal))
+            onActivate?(.launch(rows[selection].app, query: query, reveal: reveal))
         default:
             break  // an unfinished sum, an error, or no match: Return does nothing
         }
-    }
-
-    private func fire(_ activation: Activation) {
-        activated = true
-        onActivate?(activation)
     }
 
     /// ⌘1–⌘5 while the field is empty. Returns false when there is no such recent app.
