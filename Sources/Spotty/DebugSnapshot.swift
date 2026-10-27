@@ -7,7 +7,10 @@ import AppKit
 @MainActor
 enum DebugSnapshot {
     static func runIfAsked(_ app: AppDelegate) {
-        guard let spec = ProcessInfo.processInfo.environment["SPOTTY_SNAPSHOT"] else { return }
+        let env = ProcessInfo.processInfo.environment
+        guard let spec = env["SPOTTY_SNAPSHOT"] else { return }
+        // `SPOTTY_APPEARANCE=light` or `dark` overrides the system appearance for the shots.
+        if let look = env["SPOTTY_APPEARANCE"] { NSApp.appearance = NSAppearance(named: look == "light" ? .aqua : .darkAqua) }
         let shots = spec.split(separator: ";").map { $0.split(separator: "|", omittingEmptySubsequences: false).map(String.init) }
         // Give the first scan time to finish.
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { take(shots[...], app) }
