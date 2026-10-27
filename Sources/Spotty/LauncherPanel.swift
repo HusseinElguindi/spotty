@@ -33,6 +33,8 @@ final class PanelController: NSObject, NSWindowDelegate {
     /// The panel's top edge in screen coordinates while it is shown.
     private var top: CGFloat = 0
     private(set) var isShown = false
+    /// False only in benchmarks, so the panel shows without taking the keyboard from whoever is typing.
+    var takesKey = true
 
     /// Called just before the panel appears, so the content can reset itself.
     var willShow: (() -> Void)?
@@ -83,7 +85,7 @@ final class PanelController: NSObject, NSWindowDelegate {
             panel.animator().alphaValue = 1
         }
         panel.ignoresMouseEvents = false
-        panel.makeKeyAndOrderFront(nil)
+        if takesKey { panel.makeKeyAndOrderFront(nil) } else { panel.orderFrontRegardless() }
         installKeyMonitor()
     }
 

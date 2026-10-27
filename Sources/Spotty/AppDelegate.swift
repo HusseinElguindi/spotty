@@ -39,6 +39,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         hotKey = HotKey { [weak self] in self?.togglePanel() }
         #if DEBUG
         DebugSnapshot.runIfAsked(self)
+        DebugBench.runIfAsked(self)
         #endif
     }
 
