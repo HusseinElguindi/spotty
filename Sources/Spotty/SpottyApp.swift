@@ -9,7 +9,7 @@ struct SpottyApp: App {
             MenuContent(delegate: delegate)
         }
         Settings {
-            SettingsView()
+            SettingsView(delegate: delegate)
         }
     }
 }

@@ -8,10 +8,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private(set) var hotKey: HotKey?
     let indexer = Indexer()
     let model = SearchModel()
+    private let usageFile = UsageFile()
+    private let capsule = CapsuleController()
+    private var activationObserver: NSObjectProtocol?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Info.plist sets LSUIElement; this covers `swift run`, which has no Info.plist.
         NSApp.setActivationPolicy(.accessory)
+        model.usage = usageFile.load()
+        noteActivations()
 
         indexer.onChange = { [weak self] in self?.model.index = $0 }
         indexer.start()
@@ -67,7 +72,58 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return false
     }
 
+    func applicationWillTerminate(_ notification: Notification) {
+        usageFile.saveNow(model.usage)
+    }
+
+    /// Settings' "Reset learned ranking".
+    func resetLearning() {
+        model.usage = UsageStore()
+        usageFile.saveNow(model.usage)
+        model.refresh()
+    }
+
     private func perform(_ activation: Activation) {
-        panel?.hide()
+        guard let panel else { return }
+        let frame = panel.panel.frame
+        let say = { [capsule] (text: String) in capsule.show(text, centeredAt: frame.midX, top: frame.maxY) }
+        switch activation {
+        case .copy(let display, let text):
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(text, forType: .string)  // "1467.87", never "1,467.87"
+            panel.hide()
+            say("Copied \(display)")
+        case .launch(let app, _, _, reveal: true):
+            panel.hide()
+            NSWorkspace.shared.activateFileViewerSelecting([app.url])
+        case .launch(let app, let query, let picked, reveal: false):
+            let typed = query.trimmingCharacters(in: .whitespaces)
+            // An empty query (a Recent row) only updates frecency and recents, never a pick.
+            let taught = model.usage.recordLaunch(of: app.id, query: QueryKeys(typed), at: .now)
+            usageFile.scheduleSave(model.usage)
+            panel.hide()
+            say(taught && picked > 0 ? "“\(typed)” now opens \(app.name) first." : "Opening \(app.name)")
+            let config = NSWorkspace.OpenConfiguration()
+            config.activates = true
+            NSWorkspace.shared.openApplication(at: app.url, configuration: config) { _, error in
+                guard error != nil else { return }
+                // Moved or deleted since the last scan.
+                Task { @MainActor in self.indexer.rescan() }
+            }
+        }
+    }
+
+    /// Apps brought to the front some other way (Dock, ⌘Tab) count as recent too.
+    private func noteActivations() {
+        activationObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main
+        ) { [weak self] note in
+            let id = (note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication)?.bundleIdentifier
+            MainActor.assumeIsolated {
+                guard let self, let id, id != Bundle.main.bundleIdentifier else { return }
+                self.model.usage.noteUse(of: id, at: .now)
+                self.usageFile.scheduleSave(self.model.usage)
+            }
+        }
     }
 }
