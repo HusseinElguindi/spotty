@@ -79,6 +79,9 @@ struct SearchView: View {
             ForEach(Array(items.enumerated()), id: \.element.0.id) { i, item in
                 AppRowView(app: item.0, name: item.1, meta: item.2, selected: i == model.selection)
                     .contentShape(.rect)
+                    .onContinuousHover { phase in
+                        if case .active = phase { model.hover(i) }
+                    }
                     .onTapGesture {
                         model.selection = i
                         model.activateSelection()
@@ -183,6 +186,7 @@ private struct MathTray: View {
     let expression: String
     let outcome: CalcOutcome
     let copy: () -> Void
+    @State private var copyHovered = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -200,9 +204,10 @@ private struct MathTray: View {
                             .foregroundStyle(Quiet.onAccent)
                             .padding(.horizontal, 14)
                             .frame(height: 30)
-                            .background(Quiet.accent, in: .capsule)
+                            .background(Quiet.accent.opacity(copyHovered ? 0.85 : 1), in: .capsule)
                     }
                     .buttonStyle(.plain)
+                    .onHover { copyHovered = $0 }
                     .padding(.bottom, 4)
                 }
             }

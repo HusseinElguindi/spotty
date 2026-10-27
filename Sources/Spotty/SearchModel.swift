@@ -1,4 +1,4 @@
-import Foundation
+import AppKit
 import LauncherCore
 import Observation
 
@@ -66,6 +66,19 @@ final class SearchModel {
         case .apps(let rows): rows.count
         case .math, .nothing: 0
         }
+    }
+
+    /// Where the pointer was when the panel opened or last moved over it. Hover only selects a row
+    /// once the pointer really moves, so a list changing under a resting pointer keeps row 1.
+    @ObservationIgnored private var pointer: NSPoint?
+
+    func notePointer() { pointer = NSEvent.mouseLocation }
+
+    func hover(_ row: Int) {
+        let location = NSEvent.mouseLocation
+        guard location != pointer else { return }
+        pointer = location
+        if selection != row { selection = row }
     }
 
     func move(_ step: Int) {

@@ -29,6 +29,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             indexer.checkIfStale()
             model.query = ""
             model.refresh()
+            model.notePointer()
         }
         panel.didHide = { [weak self] in self?.model.query = "" }
         panel.keyHandler = { [weak self] in self?.handleKey($0) ?? false }

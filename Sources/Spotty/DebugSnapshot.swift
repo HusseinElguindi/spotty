@@ -33,15 +33,18 @@ enum DebugSnapshot {
             }
             return
         }
-        // Every shot closes and reopens the panel, as a real ⌘Space would.
-        if panel.isShown {
+        // Every shot closes and reopens the panel, as a real ⌘Space would, unless its query
+        // starts with `=`, which keeps the panel as it is.
+        let keep = shot[0].hasPrefix("=")
+        if panel.isShown && !keep {
             panel.hide()
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { take(shots, app) }
             return
         }
-        app.showPanel()
-        let returns = shot[0].hasSuffix("⏎")
-        app.model.query = returns ? String(shot[0].dropLast()) : shot[0]
+        if !panel.isShown { app.showPanel() }
+        let query = keep ? String(shot[0].dropFirst()) : shot[0]
+        let returns = query.hasSuffix("⏎")
+        app.model.query = returns ? String(query.dropLast()) : query
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
             if returns { app.model.activateSelection() }
         }
@@ -51,7 +54,7 @@ enum DebugSnapshot {
                 view.cacheDisplay(in: view.bounds, to: rep)
                 try? rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: shot[1]))
             }
-            print("snapshot \(shot[1]) key=\(panel.panel.isKeyWindow) frame=\(panel.panel.frame) active=\(NSApp.isActive)")
+            print("snapshot \(shot[1]) selection=\(app.model.selection) key=\(panel.panel.isKeyWindow) frame=\(panel.panel.frame) active=\(NSApp.isActive)")
             take(shots.dropFirst(), app)
         }
     }
