@@ -11,7 +11,10 @@ final class LauncherPanel: NSPanel {
                    styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: true)
         isFloatingPanel = true
         level = .modalPanel
-        collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .ignoresCycle]
+        // Moved to whichever Space is active each time it is shown, as Maccy and Ice do, rather
+        // than joining every Space: macOS sometimes forgot a hidden every-Space panel's membership
+        // and left it on one Space, so ⌘Space opened it out of sight.
+        collectionBehavior = [.moveToActiveSpace, .fullScreenAuxiliary, .ignoresCycle]
         isOpaque = false
         backgroundColor = .clear
         hasShadow = true
@@ -35,7 +38,7 @@ final class LauncherPanel: NSPanel {
 /// edge, with guides to snap back to the standard spot, and the next open keeps the new spot.
 @MainActor
 final class PanelController: NSObject, NSWindowDelegate {
-    /// Replaced by `rebuild` when the window server stops showing it on every Space.
+    /// Replaced by `rebuild` when, after a display wake, it still lands off the active Space.
     private(set) var panel = LauncherPanel()
     /// Set when the displays wake or change; the next show starts with a fresh window.
     private var needsRebuild = false
@@ -91,18 +94,28 @@ final class PanelController: NSObject, NSWindowDelegate {
         panel.contentView = host.view
         panel.delegate = self
         // Never leave the panel up on a Space you have left, or over a sleeping screen.
-        for name in [NSWorkspace.activeSpaceDidChangeNotification, NSWorkspace.screensDidSleepNotification] {
+        for (name, event) in [(NSWorkspace.activeSpaceDidChangeNotification, "Space switch"),
+                              (NSWorkspace.screensDidSleepNotification, "screens sleep")] {
             NSWorkspace.shared.notificationCenter.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
-                MainActor.assumeIsolated { self?.hide() }
+                MainActor.assumeIsolated {
+                    guard let self else { return }
+                    SpaceProbe.log(self.panel, event)
+                    self.hide()
+                }
             }
         }
-        // After the displays sleep and wake (and reconfigure), the window server can leave the
-        // panel on one Space for good, whatever its collection behaviour says; seen at 05:51Z on
-        // 27 Oct, when re-registering it and moving it both failed. A fresh window is always fine.
-        for (center, name) in [(NotificationCenter.default, NSApplication.didChangeScreenParametersNotification),
-                               (NSWorkspace.shared.notificationCenter, NSWorkspace.screensDidWakeNotification)] {
+        // A guard kept from the every-Space days: after the displays wake or change, the next show
+        // is checked, and the window replaced if it still lands off the active Space.
+        for (center, name, event) in [
+            (NotificationCenter.default, NSApplication.didChangeScreenParametersNotification, "screen change"),
+            (NSWorkspace.shared.notificationCenter, NSWorkspace.screensDidWakeNotification, "screens wake"),
+        ] {
             center.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
-                MainActor.assumeIsolated { self?.needsRebuild = true }
+                MainActor.assumeIsolated {
+                    guard let self else { return }
+                    SpaceProbe.log(self.panel, event)
+                    self.needsRebuild = true
+                }
             }
         }
         // A backstop: contentChanged() normally resizes before SwiftUI draws.
@@ -118,7 +131,8 @@ final class PanelController: NSObject, NSWindowDelegate {
     func show() {
         guard !isShown else { return }
         isShown = true
-        if needsRebuild { rebuild("the displays changed or woke") }
+        let afterWake = needsRebuild
+        needsRebuild = false
         willShow?()
         let screen = NSScreen.screens.first { $0.frame.contains(NSEvent.mouseLocation) } ?? NSScreen.main
         visible = screen?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
@@ -130,17 +144,11 @@ final class PanelController: NSObject, NSWindowDelegate {
         panel.setFrame(NSRect(x: midX - 280, y: top - height, width: 560, height: height), display: false)
 
         // Appears at once, at its final size: no fade, no movement. Never activates Spotty.
+        SpaceProbe.log(panel, "before show")
         focusField()
         orderFront()
-        if !panel.isOnActiveSpace {
-            // Stuck on another Space despite all that: replace the window and show the new one.
-            let frame = panel.frame
-            rebuild("the panel opened off the active Space")
-            panel.setFrame(frame, display: false)
-            focusField()
-            orderFront()
-        }
-        SpaceProbe.log(panel)
+        SpaceProbe.log(panel, "after show")
+        if afterWake { checkSpaceSoon() }
         installKeyMonitor()
         // A click in any other app closes the panel. Mouse-down monitors need no permission.
         outsideClickMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown, .otherMouseDown]) { [weak self] _ in
@@ -158,6 +166,20 @@ final class PanelController: NSObject, NSWindowDelegate {
     }
 
     private static let spaceLog = Logger(subsystem: "com.hus.spotty", category: "spaces")
+
+    /// After a display wake, looks again 100 ms after showing (a window just ordered in can read
+    /// as on no Space for a moment) and replaces the window only if it is still off the active Space.
+    private func checkSpaceSoon() {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+            guard let self, self.isShown, SpaceProbe.isOnActiveSpace(self.panel) == false else { return }
+            let frame = self.panel.frame
+            self.rebuild("still off the active Space 100 ms after showing, after a display wake")
+            self.panel.setFrame(frame, display: false)
+            self.focusField()
+            self.orderFront()
+            SpaceProbe.log(self.panel, "after rebuild")
+        }
+    }
 
     /// Moves the content into a fresh panel and lets the old window go.
     private func rebuild(_ reason: String) {
@@ -216,6 +238,7 @@ final class PanelController: NSObject, NSWindowDelegate {
         // Gone at once, so it stops taking input immediately. The field stays first responder in
         // the hidden window, so it takes typing the instant the panel next becomes key.
         panel.orderOut(nil)
+        SpaceProbe.log(panel, "hidden")
         if panel.isVisible {
             // A window the window server has broken can ignore orderOut, leaving it on screen
             // while Spotty thinks it is hidden; then ⌘Space shows instead of closing. Discard it.
@@ -331,10 +354,11 @@ final class PanelController: NSObject, NSWindowDelegate {
 }
 
 
-/// Logs which Space the panel really landed on, asked of the window server directly, since
-/// AppKit's own answer can be wrong. Uses private read-only CoreGraphics calls looked up at run
-/// time; if they are missing it logs nothing. `log show --predicate 'subsystem == "com.hus.spotty"
-/// AND category == "spaces"'` lists the lines.
+/// Logs which Space the panel is really on, asked of the window server directly, since AppKit's
+/// own answer can be wrong; also the active Space and its changes. Only Space ids, never typed
+/// text. Uses private read-only CoreGraphics calls looked up at run time; if they are missing it
+/// logs nothing. `/usr/bin/log show --predicate 'subsystem == "com.hus.spotty" AND
+/// category == "spaces"'` lists the lines (plain `log` is a zsh builtin).
 @MainActor
 enum SpaceProbe {
     private typealias MainConnection = @convention(c) () -> Int32
@@ -350,16 +374,29 @@ enum SpaceProbe {
         return (unsafeBitCast(main, to: MainConnection.self), unsafeBitCast(active, to: ActiveSpace.self),
                 unsafeBitCast(spaces, to: SpacesForWindows.self))
     }()
+    /// The active Space at the last log line, to report a switch as from and to.
+    private static var lastActive: UInt64?
 
-    static func log(_ window: NSWindow) {
-        guard let (main, active, spacesFor) = calls else { return }
+    private static func read(_ window: NSWindow) -> (active: UInt64, spaces: [UInt64])? {
+        guard let (main, active, spacesFor) = calls else { return nil }
         let connection = main()
-        let current = active(connection)
         let spaces = spacesFor(connection, 7, [window.windowNumber] as CFArray)?.takeRetainedValue() as? [UInt64] ?? []
-        if spaces.contains(current) {
-            log.notice("Panel on the active Space \(current); its Spaces \(spaces, privacy: .public)")
+        return (active(connection), spaces)
+    }
+
+    /// The window server's answer; nil when it can't be asked.
+    static func isOnActiveSpace(_ window: NSWindow) -> Bool? {
+        read(window).map { $0.spaces.contains($0.active) }
+    }
+
+    static func log(_ window: NSWindow, _ event: String) {
+        guard let (active, spaces) = read(window) else { return }
+        let from = lastActive.map(String.init) ?? "?"
+        lastActive = active
+        if event == "after show" && !spaces.contains(active) {
+            log.error("\(event, privacy: .public): panel NOT on the active Space \(active); its Spaces \(spaces, privacy: .public)")
         } else {
-            log.error("Panel NOT on the active Space \(current); its Spaces \(spaces, privacy: .public)")
+            log.notice("\(event, privacy: .public): active Space \(from, privacy: .public) -> \(active); panel's Spaces \(spaces, privacy: .public)")
         }
     }
 }
