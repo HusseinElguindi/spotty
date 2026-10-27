@@ -39,14 +39,20 @@ final class CalculatorTests: XCTestCase {
         XCTAssertEqual(copy("10^20"), "1e20")
     }
 
-    func testTrigonometryInRadians() {
+    func testTrigonometry() {
         let cases: [(String, String)] = [
-            ("sin(0)", "0"), ("sin(pi/2)", "1"), ("sin(pi)", "0"), ("cos(pi)", "−1"), ("cos(pi/3)", "0.5"),
-            ("tan(pi/4)", "1"), ("sin 1", "0.841470984808"), ("2 sin(pi/6)", "1"),
+            // Radians by default.
+            ("sin(0)", "0"), ("sin(pi/2)", "1"), ("sin(pi)", "0"), ("cos(pi)", "−1"), ("cos(pi/2)", "0"),
+            ("cos(pi/3)", "0.5"), ("tan(pi/4)", "1"), ("sin 1", "0.841470984808"), ("sin(1)", "0.841470984808"),
+            ("2 sin(pi/6)", "1"), ("SIN(PI)", "0"),
+            // Degrees with ° or "deg".
+            ("sin 30°", "0.5"), ("sin(30 deg)", "0.5"), ("cos 90°", "0"), ("tan 45°", "1"), ("cos(60°)", "0.5"),
+            ("sin 30° + cos 60°", "1"), ("180°", "3.14159265359"),
+            // Inverses answer in radians.
             ("asin(1)", "1.57079632679"), ("acos(0)", "1.57079632679"), ("atan(1)*4", "3.14159265359"),
-            ("sinh(0)", "0"), ("cosh(0)", "1"), ("tanh(0)", "0"), ("cosh(1)", "1.54308063482"),
-            ("asinh(0)", "0"), ("acosh(1)", "0"), ("atanh(0.5)", "0.549306144334"), ("exp(1)", "2.71828182846"),
-            ("SIN(PI)", "0"),
+            // Hyperbolic and exp.
+            ("sinh(0)", "0"), ("cosh 0", "1"), ("tanh(0)", "0"), ("cosh(1)", "1.54308063482"),
+            ("asinh(0)", "0"), ("acosh(1)", "0"), ("atanh(0.5)", "0.549306144334"),
         ]
         for (input, expected) in cases {
             guard case .value(_, let display, _) = Calculator.evaluate(input) else {
@@ -54,12 +60,25 @@ final class CalculatorTests: XCTestCase {
             }
             XCTAssertEqual(display, expected, input)
         }
-        XCTAssertEqual(Calculator.evaluate("asin(2)"), .error(.notReal))
+        guard case .value(let e1, _, _) = Calculator.evaluate("exp 1") else { return XCTFail("exp 1") }
+        XCTAssertEqual(NSDecimalNumber(decimal: e1).doubleValue, M_E, accuracy: 1e-14)
+
+        XCTAssertEqual(Calculator.evaluate("tan 90°"), .error(.undefined))
+        XCTAssertEqual(Calculator.evaluate("tan(pi/2)"), .error(.undefined))
+        XCTAssertEqual(Calculator.evaluate("atanh(1)"), .error(.undefined))
+        XCTAssertEqual(CalcError.undefined.message, "Undefined")
+        XCTAssertEqual(Calculator.evaluate("asin 2"), .error(.notReal))
         XCTAssertEqual(Calculator.evaluate("acosh(0)"), .error(.notReal))
-        XCTAssertEqual(Calculator.evaluate("atanh(1)"), .error(.notReal))
+        XCTAssertEqual(Calculator.evaluate("atanh(2)"), .error(.notReal))
+
         // A function name alone is still a word, so app search carries on.
-        for word in ["sin", "cos", "cosh", "tan", "exp"] { XCTAssertEqual(Calculator.evaluate(word), .notMath, word) }
+        for word in ["sin", "cos", "cosh", "tan", "exp", "deg"] { XCTAssertEqual(Calculator.evaluate(word), .notMath, word) }
+
+        XCTAssertEqual(Calculator.expressionLine("sin 30°"), "sin 30°")
+        XCTAssertEqual(Calculator.expressionLine("sin 30 deg"), "sin 30°")
+        XCTAssertEqual(Calculator.expressionLine("cos(pi)"), "cos(π)")
         XCTAssertEqual(Calculator.expressionLine("2sin(pi/6)"), "2 sin(π ÷ 6)")
+        XCTAssertEqual(Calculator.evaluate("sin(30°)+"), .incomplete(soFar: "0.5"))
     }
 
     func testNotMath() {

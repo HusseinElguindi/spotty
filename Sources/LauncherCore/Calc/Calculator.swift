@@ -53,7 +53,7 @@ public enum Calculator {
         var out = ""
         var previous: Token?
         for (token, text) in tokens {
-            let afterOperand = previous?.isOperand == true || previous == .op("%")
+            let afterOperand = previous?.isOperand == true || previous == .op("%") || previous == .op("°")
             let afterFunction = if case .name(let n)? = previous, CalcFunction(rawValue: n) != nil, n != "sqrt" { true } else { false }
             switch token {
             case .number:
@@ -66,7 +66,7 @@ public enum Calculator {
                 out += "+"
             case .op(let op):
                 switch op {
-                case "%", "^": out.append(op)
+                case "%", "^", "°": out.append(op)
                 case "*": out += " \u{00D7} "
                 case "/": out += " \u{00F7} "
                 case "-": out += " \u{2212} "
@@ -99,7 +99,7 @@ extension Token {
     /// Still needs something after it before it means anything: "+", "(", "sqrt", "mod".
     var awaitsOperand: Bool {
         switch self {
-        case .op(let op): op != "%"
+        case .op(let op): op != "%" && op != "°"
         case .lparen: true
         case .name(let n): constants[n] == nil
         case .number, .rparen: false

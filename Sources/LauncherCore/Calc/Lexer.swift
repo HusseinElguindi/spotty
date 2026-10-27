@@ -76,6 +76,7 @@ func lexSpelled(_ input: String) -> [(token: Token, text: String)]? {
             var word = ""
             while i < chars.count, chars[i].isLetter { word.append(chars[i]); i += 1 }
             let lower = word.lowercased()
+            if lower == "deg" { tokens.append((.op("°"), word)); continue }  // "30 deg" is 30°
             guard constants[lower] != nil || CalcFunction(rawValue: lower) != nil || lower == "mod" else { return nil }
             tokens.append((.name(lower), word))
             continue
@@ -89,6 +90,7 @@ func lexSpelled(_ input: String) -> [(token: Token, text: String)]? {
         case "/", "\u{00F7}": token = .op("/")
         case "^": token = .op("^")
         case "%": token = .op("%")
+        case "\u{00B0}": token = .op("°")  // degrees: 30° is 30 × π/180
         case "(": token = .lparen
         case ")": token = .rparen
         case "\u{221A}": token = .name("sqrt")  // √

@@ -6,6 +6,8 @@ indirect enum Expr: Equatable {
     case negate(Expr)
     case binary(Character, Expr, Expr)  // + - * / ^ and "m" for mod
     case percent(Expr)
+    /// "30°" or "30 deg": the angle in radians.
+    case degrees(Expr)
     case call(CalcFunction, Expr)
 
     /// Whether the input did any math. A bare number or constant doesn't, so typing "2"
@@ -13,7 +15,7 @@ indirect enum Expr: Equatable {
     var hasOperation: Bool {
         switch self {
         case .number, .constant: false
-        case .negate, .binary, .percent, .call: true
+        case .negate, .binary, .percent, .degrees, .call: true
         }
     }
 }
@@ -53,6 +55,10 @@ struct Parser {
                 guard Self.postfix >= minPower else { return lhs }
                 pos += 1
                 lhs = .percent(lhs)
+            case .op("°"):
+                guard Self.postfix >= minPower else { return lhs }
+                pos += 1
+                lhs = .degrees(lhs)
             case .op(let op):
                 let (left, right) = Self.infixPowers(op)
                 guard left >= minPower else { return lhs }

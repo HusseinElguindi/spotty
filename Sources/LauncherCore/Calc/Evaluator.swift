@@ -1,13 +1,14 @@
 import Foundation
 
 public enum CalcError: Error, Equatable, Sendable {
-    case divideByZero, notReal, tooLarge
+    case divideByZero, notReal, tooLarge, undefined
 
     public var message: String {
         switch self {
         case .divideByZero: "Can't divide by zero"
         case .notReal: "Not a real number"
         case .tooLarge: "Number too large"
+        case .undefined: "Undefined"
         }
     }
 }
@@ -31,6 +32,8 @@ enum Evaluator {
             return -(try eval(e))
         case .percent(let e):
             return try eval(e) / 100
+        case .degrees(let e):
+            return try eval(e) * constants["pi"]! / 180
         case .binary(let op, let l, .percent(let p)) where op == "+" || op == "-":
             // "200 + 10%" adds 10% of 200, like a handheld calculator.
             let base = try eval(l), share = base * (try eval(p)) / 100
@@ -91,33 +94,40 @@ enum Evaluator {
             guard x > 0 else { throw .notReal }
             return try viaDouble(Foundation.log10(double(x)))
         case .exp: return try viaDouble(Foundation.exp(double(x)))
-        case .sin: return try periodic(Foundation.sin(double(x)))
-        case .cos: return try periodic(Foundation.cos(double(x)))
-        case .tan: return try periodic(Foundation.tan(double(x)))
+        case .sin: return try trig(Foundation.sin(double(x)))
+        case .cos: return try trig(Foundation.cos(double(x)))
+        case .tan:
+            // tan 90° has no value; in binary cos(π/2) is 6e−17, not 0, so catch it by size.
+            guard Swift.abs(Foundation.cos(double(x))) > 1e-15 else { throw .undefined }
+            return try trig(Foundation.tan(double(x)))
         case .asin:
             guard Swift.abs(x) <= 1 else { throw .notReal }
-            return try viaDouble(Foundation.asin(double(x)))
+            return try trig(Foundation.asin(double(x)))
         case .acos:
             guard Swift.abs(x) <= 1 else { throw .notReal }
-            return try viaDouble(Foundation.acos(double(x)))
-        case .atan: return try viaDouble(Foundation.atan(double(x)))
-        case .sinh: return try viaDouble(Foundation.sinh(double(x)))
-        case .cosh: return try viaDouble(Foundation.cosh(double(x)))
-        case .tanh: return try viaDouble(Foundation.tanh(double(x)))
-        case .asinh: return try viaDouble(Foundation.asinh(double(x)))
+            return try trig(Foundation.acos(double(x)))
+        case .atan: return try trig(Foundation.atan(double(x)))
+        case .sinh: return try trig(Foundation.sinh(double(x)))
+        case .cosh: return try trig(Foundation.cosh(double(x)))
+        case .tanh: return try trig(Foundation.tanh(double(x)))
+        case .asinh: return try trig(Foundation.asinh(double(x)))
         case .acosh:
             guard x >= 1 else { throw .notReal }
-            return try viaDouble(Foundation.acosh(double(x)))
+            return try trig(Foundation.acosh(double(x)))
         case .atanh:
-            guard Swift.abs(x) < 1 else { throw .notReal }
-            return try viaDouble(Foundation.atanh(double(x)))
+            guard Swift.abs(x) <= 1 else { throw .notReal }
+            guard Swift.abs(x) < 1 else { throw .undefined }
+            return try trig(Foundation.atanh(double(x)))
         }
     }
 
-    /// sin, cos and tan of a multiple of π land a hair off zero in binary (sin π is 1.2e−16),
-    /// which would show as noise. Anything that small is the zero you meant.
-    private static func periodic(_ d: Double) throws(CalcError) -> Decimal {
-        try viaDouble(Swift.abs(d) < 1e-12 ? 0 : d)
+    /// Trigonometric and hyperbolic results go through `Double`, whose last digits are noise
+    /// for angles like π/6 (sin 30° is 0.49999999999999994). Rounding to 15 significant digits
+    /// removes that, and anything within 1e−12 of zero is the zero you meant (sin π is 1.2e−16).
+    private static func trig(_ d: Double) throws(CalcError) -> Decimal {
+        guard d.isFinite else { return try viaDouble(d) }
+        guard Swift.abs(d) >= 1e-12 else { return 0 }
+        return try viaDouble(Double(String(format: "%.15g", d)) ?? d)
     }
 
     /// Rounds to a whole number. `.down` and `.up` go toward minus and plus infinity.
