@@ -39,6 +39,9 @@ final class PanelController: NSObject, NSWindowDelegate {
     private var needsRebuild = false
     private let host: NSHostingController<AnyView>
     private var keyMonitor: Any?
+    /// Clicks in other apps while the panel is up, and the Space or screen going away. Closing
+    /// otherwise relies on the panel losing key status, which never happens if it never got it.
+    private(set) var outsideClickMonitor: Any?
     /// The panel's top edge in screen coordinates while it is shown.
     private var top: CGFloat = 0
     private(set) var isShown = false
@@ -68,6 +71,12 @@ final class PanelController: NSObject, NSWindowDelegate {
         super.init()
         panel.contentView = host.view
         panel.delegate = self
+        // Never leave the panel up on a Space you have left, or over a sleeping screen.
+        for name in [NSWorkspace.activeSpaceDidChangeNotification, NSWorkspace.screensDidSleepNotification] {
+            NSWorkspace.shared.notificationCenter.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
+                MainActor.assumeIsolated { self?.hide() }
+            }
+        }
         // After the displays sleep and wake (and reconfigure), the window server can leave the
         // panel on one Space for good, whatever its collection behaviour says; seen at 05:51Z on
         // 27 Oct, when re-registering it and moving it both failed. A fresh window is always fine.
@@ -110,6 +119,19 @@ final class PanelController: NSObject, NSWindowDelegate {
         }
         SpaceProbe.log(panel)
         installKeyMonitor()
+        // A click in any other app closes the panel. Mouse-down monitors need no permission.
+        outsideClickMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown, .otherMouseDown]) { [weak self] _ in
+            MainActor.assumeIsolated { self?.hide() }
+        }
+        if takesKey {
+            // If macOS didn't hand the panel the keyboard, Esc and clicking elsewhere would do
+            // nothing; ask once more on the next turn.
+            DispatchQueue.main.async { [weak self] in
+                guard let self, self.isShown, !self.panel.isKeyWindow else { return }
+                Self.spaceLog.error("Panel shown without key status; making it key again")
+                self.panel.makeKeyAndOrderFront(nil)
+            }
+        }
     }
 
     private static let spaceLog = Logger(subsystem: "com.hus.spotty", category: "spaces")
@@ -122,6 +144,7 @@ final class PanelController: NSObject, NSWindowDelegate {
         old.delegate = nil  // its resigning key must not close the new one
         old.orderOut(nil)
         old.contentView = nil
+        old.close()
         panel = LauncherPanel()
         panel.contentView = host.view
         panel.delegate = self
@@ -161,9 +184,16 @@ final class PanelController: NSObject, NSWindowDelegate {
         guard isShown else { return }
         isShown = false
         removeKeyMonitor()
+        if let outsideClickMonitor { NSEvent.removeMonitor(outsideClickMonitor) }
+        outsideClickMonitor = nil
         // Gone at once, so it stops taking input immediately. The field stays first responder in
         // the hidden window, so it takes typing the instant the panel next becomes key.
         panel.orderOut(nil)
+        if panel.isVisible {
+            // A window the window server has broken can ignore orderOut, leaving it on screen
+            // while Spotty thinks it is hidden; then ⌘Space shows instead of closing. Discard it.
+            rebuild("the panel stayed visible after hiding")
+        }
         didHide?()
     }
 
