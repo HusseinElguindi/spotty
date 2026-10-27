@@ -39,6 +39,29 @@ final class CalculatorTests: XCTestCase {
         XCTAssertEqual(copy("10^20"), "1e20")
     }
 
+    func testTrigonometryInRadians() {
+        let cases: [(String, String)] = [
+            ("sin(0)", "0"), ("sin(pi/2)", "1"), ("sin(pi)", "0"), ("cos(pi)", "−1"), ("cos(pi/3)", "0.5"),
+            ("tan(pi/4)", "1"), ("sin 1", "0.841470984808"), ("2 sin(pi/6)", "1"),
+            ("asin(1)", "1.57079632679"), ("acos(0)", "1.57079632679"), ("atan(1)*4", "3.14159265359"),
+            ("sinh(0)", "0"), ("cosh(0)", "1"), ("tanh(0)", "0"), ("cosh(1)", "1.54308063482"),
+            ("asinh(0)", "0"), ("acosh(1)", "0"), ("atanh(0.5)", "0.549306144334"), ("exp(1)", "2.71828182846"),
+            ("SIN(PI)", "0"),
+        ]
+        for (input, expected) in cases {
+            guard case .value(_, let display, _) = Calculator.evaluate(input) else {
+                XCTFail("\(input) is not a value: \(Calculator.evaluate(input))"); continue
+            }
+            XCTAssertEqual(display, expected, input)
+        }
+        XCTAssertEqual(Calculator.evaluate("asin(2)"), .error(.notReal))
+        XCTAssertEqual(Calculator.evaluate("acosh(0)"), .error(.notReal))
+        XCTAssertEqual(Calculator.evaluate("atanh(1)"), .error(.notReal))
+        // A function name alone is still a word, so app search carries on.
+        for word in ["sin", "cos", "cosh", "tan", "exp"] { XCTAssertEqual(Calculator.evaluate(word), .notMath, word) }
+        XCTAssertEqual(Calculator.expressionLine("2sin(pi/6)"), "2 sin(π ÷ 6)")
+    }
+
     func testNotMath() {
         for input in ["safari", "1password", "2", "e", "pi", "sq", "", "  ", "1,2", "2+)", "3 4", "hello + 2", "mod 3"] {
             XCTAssertEqual(Calculator.evaluate(input), .notMath, "input \"\(input)\"")

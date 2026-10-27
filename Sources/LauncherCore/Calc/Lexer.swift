@@ -8,7 +8,10 @@ enum Token: Equatable {
 }
 
 enum CalcFunction: String, CaseIterable {
-    case sqrt, abs, round, floor, ceil, ln, log
+    case sqrt, abs, round, floor, ceil, ln, log, exp
+    // Trigonometry, in radians.
+    case sin, cos, tan, asin, acos, atan
+    case sinh, cosh, tanh, asinh, acosh, atanh
 }
 
 let constants: [String: Decimal] = [

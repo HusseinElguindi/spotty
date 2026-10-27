@@ -90,7 +90,34 @@ enum Evaluator {
         case .log:
             guard x > 0 else { throw .notReal }
             return try viaDouble(Foundation.log10(double(x)))
+        case .exp: return try viaDouble(Foundation.exp(double(x)))
+        case .sin: return try periodic(Foundation.sin(double(x)))
+        case .cos: return try periodic(Foundation.cos(double(x)))
+        case .tan: return try periodic(Foundation.tan(double(x)))
+        case .asin:
+            guard Swift.abs(x) <= 1 else { throw .notReal }
+            return try viaDouble(Foundation.asin(double(x)))
+        case .acos:
+            guard Swift.abs(x) <= 1 else { throw .notReal }
+            return try viaDouble(Foundation.acos(double(x)))
+        case .atan: return try viaDouble(Foundation.atan(double(x)))
+        case .sinh: return try viaDouble(Foundation.sinh(double(x)))
+        case .cosh: return try viaDouble(Foundation.cosh(double(x)))
+        case .tanh: return try viaDouble(Foundation.tanh(double(x)))
+        case .asinh: return try viaDouble(Foundation.asinh(double(x)))
+        case .acosh:
+            guard x >= 1 else { throw .notReal }
+            return try viaDouble(Foundation.acosh(double(x)))
+        case .atanh:
+            guard Swift.abs(x) < 1 else { throw .notReal }
+            return try viaDouble(Foundation.atanh(double(x)))
         }
+    }
+
+    /// sin, cos and tan of a multiple of π land a hair off zero in binary (sin π is 1.2e−16),
+    /// which would show as noise. Anything that small is the zero you meant.
+    private static func periodic(_ d: Double) throws(CalcError) -> Decimal {
+        try viaDouble(Swift.abs(d) < 1e-12 ? 0 : d)
     }
 
     /// Rounds to a whole number. `.down` and `.up` go toward minus and plus infinity.
