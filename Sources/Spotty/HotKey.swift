@@ -16,7 +16,10 @@ final class HotKey {
         let installed = InstallEventHandler(GetApplicationEventTarget(), { _, _, userData in
             guard let userData else { return OSStatus(eventNotHandledErr) }
             let hotKey = Unmanaged<HotKey>.fromOpaque(userData).takeUnretainedValue()
-            MainActor.assumeIsolated { hotKey.action() }
+            MainActor.assumeIsolated {
+                debugNote("hotkey")
+                hotKey.action()
+            }
             return noErr
         }, 1, &spec, Unmanaged.passUnretained(self).toOpaque(), &handler)
         let id = EventHotKeyID(signature: 0x5350_5459, id: 1)  // "SPTY"

@@ -46,6 +46,7 @@ final class Indexer {
             forName: NSWorkspace.didWakeNotification, object: nil, queue: .main
         ) { [weak self] _ in
             MainActor.assumeIsolated {
+                debugNote("system wake")
                 guard let self else { return }
                 self.watcher.stop()
                 self.watcher.start(AppScanner.watchedFolders())
@@ -110,7 +111,10 @@ final class FolderWatcher {
         let callback: FSEventStreamCallback = { _, info, _, _, _, _ in
             guard let info else { return }
             let watcher = Unmanaged<FolderWatcher>.fromOpaque(info).takeUnretainedValue()
-            MainActor.assumeIsolated { watcher.onChange?() }
+            MainActor.assumeIsolated {
+                debugNote("fsevents")
+                watcher.onChange?()
+            }
         }
         stream = FSEventStreamCreate(nil, callback, &context, paths as CFArray,
                                      FSEventStreamEventId(kFSEventStreamEventIdSinceNow), 1.0,

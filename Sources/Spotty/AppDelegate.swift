@@ -40,6 +40,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         #if DEBUG
         DebugSnapshot.runIfAsked(self)
         DebugBench.runIfAsked(self)
+        DebugIdle.start()
         #endif
     }
 
@@ -142,6 +143,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         ) { [weak self] note in
             let id = (note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication)?.bundleIdentifier
             MainActor.assumeIsolated {
+                debugNote("activation \(id ?? "?")")
                 guard let self, let id, id != Bundle.main.bundleIdentifier else { return }
                 self.model.usage.noteUse(of: id, at: .now)
                 self.usageFile.scheduleSave(self.model.usage)

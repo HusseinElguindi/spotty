@@ -26,6 +26,7 @@ final class UsageFile {
     }
 
     func scheduleSave(_ usage: UsageStore) {
+        debugNote("usage save scheduled")
         pending?.cancel()
         let url = url, backup = backup
         let work = DispatchWorkItem { Self.write(usage, to: url, backup: backup) }
@@ -42,6 +43,7 @@ final class UsageFile {
     }
 
     nonisolated private static func write(_ usage: UsageStore, to url: URL, backup: URL) {
+        debugNote("usage save")
         guard let data = try? JSONEncoder().encode(usage) else { return }
         let files = FileManager.default
         try? files.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
