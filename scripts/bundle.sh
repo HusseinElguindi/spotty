@@ -16,9 +16,17 @@ rm -rf "$app"
 mkdir -p "$app/Contents/MacOS"
 cp "$bin" "$app/Contents/MacOS/Spotty"
 
+# The icon: Resources/AppIcon.icon (Icon Composer's layered format) compiled by actool into
+# Assets.car for macOS 26 and later, plus an AppIcon.icns it renders for macOS 14 and 15. Without
+# actool (Command Line Tools only), the checked-in AppIcon.icns is used as it is.
 icon=""
-if [ -f Resources/AppIcon.icns ]; then
-    mkdir -p "$app/Contents/Resources"
+mkdir -p "$app/Contents/Resources"
+if [ -d Resources/AppIcon.icon ] && xcrun --find actool >/dev/null 2>&1; then
+    xcrun actool Resources/AppIcon.icon --compile "$app/Contents/Resources" --platform macosx \
+        --minimum-deployment-target 14.0 --app-icon AppIcon \
+        --output-partial-info-plist "$(mktemp -t spotty-icon).plist" >/dev/null
+    icon="<key>CFBundleIconFile</key><string>AppIcon</string><key>CFBundleIconName</key><string>AppIcon</string>"
+elif [ -f Resources/AppIcon.icns ]; then
     cp Resources/AppIcon.icns "$app/Contents/Resources/AppIcon.icns"
     icon="<key>CFBundleIconFile</key><string>AppIcon</string>"
 fi
