@@ -1,0 +1,43 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    # macOS 27 with Xcode 27.1, the toolchain Spotty is developed with. The code needs Swift 6.2
+    # or newer (isolated deinit), which the older macos-latest images don't have.
+    runs-on: xcode-27
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode 27.1
+        run: |
+          sudo xcode-select -s /Applications/Xcode_27.1.app
+          swift --version
+
+      - name: Test
+        run: swift test
+
+      - name: Build Spotty.app
+        run: scripts/bundle.sh "${GITHUB_REF_NAME#v}"
+
+      - name: Zip and checksum
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          zip="Spotty-$version.zip"
+          ditto -c -k --keepParent build/Spotty.app "$zip"
+          shasum -a 256 "$zip" > "$zip.sha256"
+          cat "$zip.sha256"
+
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          gh release create "$GITHUB_REF_NAME" "Spotty-$version.zip" "Spotty-$version.zip.sha256" \
+            --title "Spotty $version" --notes-file .github/release-notes.md

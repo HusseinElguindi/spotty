@@ -3,12 +3,25 @@
 A small replacement for Spotlight that does two things: opens apps and does sums.
 No file search, no AI, no web results.
 
+## Install
+
+1. Download `Spotty-<version>.zip` from the [latest release](https://github.com/HusseinElguindi/spotty/releases/latest), unzip it and move **Spotty.app** to **Applications**.
+2. Open it. Spotty isn't notarized, so the first launch is blocked: go to System Settings › Privacy & Security and click **Open Anyway** next to Spotty. Once is enough.
+3. Turn off Spotlight's ⌘Space (see below) so the shortcut reaches Spotty.
+
+## Releasing
+
+Push a tag such as `v0.1.0`. `.github/workflows/release.yml` runs the tests, builds a universal,
+ad-hoc signed `Spotty.app` with that version, and publishes `Spotty-0.1.0.zip` and its `.sha256`
+as a GitHub Release with the notes in `.github/release-notes.md`. An icon is picked up from
+`Resources/AppIcon.icns` when that file exists.
+
 ## Build and run
 
-Needs macOS 14 or later and Swift 6 (Xcode or just the Command Line Tools).
+Runs on macOS 14 or later. Building needs Swift 6.2 or newer (Xcode 26+, or its Command Line Tools).
 
 ```sh
-scripts/bundle.sh       # release build -> build/Spotty.app, ad-hoc signed
+scripts/bundle.sh       # universal release build -> build/Spotty.app, ad-hoc signed (version 0.1.0, or pass one)
 open build/Spotty.app
 ```
 
