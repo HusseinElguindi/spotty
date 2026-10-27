@@ -8,15 +8,11 @@ struct SpottyApp: App {
         MenuBarExtra("Spotty", systemImage: "magnifyingglass") {
             MenuContent(delegate: delegate)
         }
-        Settings {
-            SettingsView(delegate: delegate)
-        }
     }
 }
 
 private struct MenuContent: View {
     let delegate: AppDelegate
-    @Environment(\.openSettings) private var openSettings
 
     var body: some View {
         Button("Open Spotty") { delegate.showPanel() }
@@ -24,12 +20,8 @@ private struct MenuContent: View {
             Text("⌘Space is taken by another app")
         }
         Divider()
-        Button("Settings…") {
-            // An ordinary window, unlike the panel, so it should come to the front.
-            NSApp.activate()
-            openSettings()
-        }
-        .keyboardShortcut(",")
+        Button("Settings…") { delegate.showSettings() }
+            .keyboardShortcut(",")
         Button("Quit Spotty") { NSApp.terminate(nil) }
             .keyboardShortcut("q")
     }

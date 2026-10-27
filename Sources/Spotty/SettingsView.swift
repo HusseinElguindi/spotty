@@ -30,7 +30,8 @@ struct SettingsView: View {
             }
         }
         .formStyle(.grouped)
-        .frame(width: 420)
+        // A grouped form scrolls and has no height of its own; without one the window is just a title bar.
+        .frame(width: 420, height: 270)
         .confirmationDialog("Reset learned ranking?", isPresented: $confirmingReset) {
             Button("Reset", role: .destructive) { delegate.resetLearning() }
         } message: {

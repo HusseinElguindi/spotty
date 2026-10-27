@@ -18,6 +18,21 @@ enum DebugSnapshot {
 
     private static func take(_ shots: ArraySlice<[String]>, _ app: AppDelegate) {
         guard let shot = shots.first, shot.count == 2, let panel = app.panel else { NSApp.terminate(nil); return }
+        // `settings|out.png` saves the settings window instead.
+        if shot[0] == "settings" {
+            app.showSettings()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                if let window = NSApp.windows.first(where: { $0.title == "Spotty Settings" }),
+                   let view = window.contentView, let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) {
+                    view.cacheDisplay(in: view.bounds, to: rep)
+                    try? rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: shot[1]))
+                    print("snapshot \(shot[1]) settings frame=\(window.frame)")
+                    window.close()
+                }
+                take(shots.dropFirst(), app)
+            }
+            return
+        }
         // Every shot closes and reopens the panel, as a real ⌘Space would.
         if panel.isShown {
             panel.hide()

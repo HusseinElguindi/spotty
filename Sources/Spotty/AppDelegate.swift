@@ -11,6 +11,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let usageFile = UsageFile()
     private let capsule = CapsuleController()
     private var activationObserver: NSObjectProtocol?
+    private var settingsWindow: NSWindow?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Info.plist sets LSUIElement; this covers `swift run`, which has no Info.plist.
@@ -74,6 +75,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationWillTerminate(_ notification: Notification) {
         usageFile.saveNow(model.usage)
+    }
+
+    /// SwiftUI's `Settings` scene and `openSettings` do nothing from a `MenuBarExtra` in an app with
+    /// no Dock icon, so Spotty keeps its own settings window.
+    func showSettings() {
+        let window = settingsWindow ?? {
+            let window = NSWindow(contentViewController: NSHostingController(rootView: SettingsView(delegate: self)))
+            window.title = "Spotty Settings"
+            window.styleMask = [.titled, .closable]
+            window.isReleasedWhenClosed = false
+            window.center()
+            settingsWindow = window
+            return window
+        }()
+        // An ordinary window, unlike the panel, so it should come to the front. macOS may decline
+        // the activation, so order the window in front regardless.
+        NSApp.activate()
+        window.makeKeyAndOrderFront(nil)
+        window.orderFrontRegardless()
     }
 
     /// Settings' "Reset learned ranking".
