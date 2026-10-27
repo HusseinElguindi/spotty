@@ -8,12 +8,33 @@ import AppKit
 enum DebugSnapshot {
     static func runIfAsked(_ app: AppDelegate) {
         let env = ProcessInfo.processInfo.environment
+        // `SPOTTY_TRACE='text'` opens the panel, "pastes" the text 40 ms later, and logs the window's
+        // height against the content's every 8 ms, to catch a frame where they disagree.
+        if let text = env["SPOTTY_TRACE"] {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { trace(text, app) }
+            return
+        }
         guard let spec = env["SPOTTY_SNAPSHOT"] else { return }
         // `SPOTTY_APPEARANCE=light` or `dark` overrides the system appearance for the shots.
         if let look = env["SPOTTY_APPEARANCE"] { NSApp.appearance = NSAppearance(named: look == "light" ? .aqua : .darkAqua) }
         let shots = spec.split(separator: ";").map { $0.split(separator: "|", omittingEmptySubsequences: false).map(String.init) }
         // Give the first scan time to finish.
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { take(shots[...], app) }
+    }
+
+    private static func trace(_ text: String, _ app: AppDelegate) {
+        guard let panel = app.panel else { return }
+        let start = Date()
+        app.showPanel()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.04) { app.model.query = text }
+        func sample() {
+            let ms = Int(Date().timeIntervalSince(start) * 1000)
+            let f = panel.panel.frame
+            print("t=\(ms) window=\(Int(f.height)) top=\(Int(f.maxY)) content=\(Int(panel.contentHeight)) alpha=\(String(format: "%.2f", panel.panel.alphaValue))")
+            if ms > 400 { NSApp.terminate(nil); return }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.008) { sample() }
+        }
+        sample()
     }
 
     private static func take(_ shots: ArraySlice<[String]>, _ app: AppDelegate) {

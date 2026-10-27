@@ -34,7 +34,7 @@ enum Activation {
 final class SearchModel {
     var query = "" { didSet { if query != oldValue { refresh() } } }
     private(set) var tray: Tray = .recent([])
-    var selection = 0
+    var selection = 0 { didSet { if selection != oldValue { onContentChange?() } } }
     /// Bumped on every show; the view focuses the field.
     var focusRequest = 0
     /// True while an input method is composing, when the completion would only get in the way.
@@ -42,6 +42,9 @@ final class SearchModel {
     var index = AppIndex.empty { didSet { refresh() } }
     var usage = UsageStore()
     @ObservationIgnored var onActivate: ((Activation) -> Void)?
+    /// Told after every change to the tray or selection (the why line comes and goes with it),
+    /// so the panel can resize before SwiftUI draws the change.
+    @ObservationIgnored var onContentChange: (() -> Void)?
 
     func refresh() {
         let typed = QueryKeys(query)
@@ -58,6 +61,7 @@ final class SearchModel {
             tray = rows.isEmpty ? .nothing : .apps(rows)
         }
         selection = 0
+        onContentChange?()
     }
 
     var rowCount: Int {

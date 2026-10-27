@@ -35,6 +35,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         panel.keyHandler = { [weak self] in self?.handleKey($0) ?? false }
         panel.composingChanged = { [weak self] in self?.model.isComposing = $0 }
         model.onActivate = { [weak self] in self?.perform($0) }
+        model.onContentChange = { [weak panel] in panel?.contentChanged() }
         hotKey = HotKey { [weak self] in self?.togglePanel() }
         #if DEBUG
         DebugSnapshot.runIfAsked(self)
