@@ -18,7 +18,13 @@ enum DebugSnapshot {
 
     private static func take(_ shots: ArraySlice<[String]>, _ app: AppDelegate) {
         guard let shot = shots.first, shot.count == 2, let panel = app.panel else { NSApp.terminate(nil); return }
-        if !panel.isShown { app.showPanel() }
+        // Every shot closes and reopens the panel, as a real ⌘Space would.
+        if panel.isShown {
+            panel.hide()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { take(shots, app) }
+            return
+        }
+        app.showPanel()
         let returns = shot[0].hasSuffix("⏎")
         app.model.query = returns ? String(shot[0].dropLast()) : shot[0]
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {

@@ -28,7 +28,7 @@ final class LauncherPanel: NSPanel {
 @MainActor
 final class PanelController: NSObject, NSWindowDelegate {
     let panel = LauncherPanel()
-    private let host: NSView
+    private let host: NSHostingController<AnyView>
     private var keyMonitor: Any?
     /// The panel's top edge in screen coordinates while it is shown.
     private var top: CGFloat = 0
@@ -51,12 +51,14 @@ final class PanelController: NSObject, NSWindowDelegate {
         let root = content
             .fixedSize(horizontal: false, vertical: true)
             .onGeometryChange(for: CGFloat.self, of: { $0.size.height }) { onHeight?($0) }
-            .frame(maxHeight: .infinity, alignment: .top)
-        let host = NSHostingView(rootView: root)
+        let host = NSHostingController(rootView: AnyView(root))
+        // The panel sets its own frame from the content's height, so the hosting view mustn't
+        // add size constraints of its own. That also leaves its `fittingSize` at zero: measure
+        // with `sizeThatFits` instead.
         host.sizingOptions = []
         self.host = host
         super.init()
-        panel.contentView = host
+        panel.contentView = host.view
         panel.delegate = self
         onHeight = { [weak self] in self?.setHeight($0) }
     }
@@ -67,10 +69,10 @@ final class PanelController: NSObject, NSWindowDelegate {
         guard !isShown else { return }
         isShown = true
         willShow?()
-        host.layoutSubtreeIfNeeded()
         let screen = NSScreen.screens.first { $0.frame.contains(NSEvent.mouseLocation) } ?? NSScreen.main
         let visible = screen?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
-        height = max(host.fittingSize.height, 58)
+        // Measured now, for the content willShow just reset, so the window opens at the right height.
+        height = max(contentHeight, 58)
         top = (visible.maxY - visible.height / 3).rounded()
         let frame = NSRect(x: (visible.midX - 280).rounded(), y: top - height, width: 560, height: height)
         let reduceMotion = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
@@ -108,6 +110,10 @@ final class PanelController: NSObject, NSWindowDelegate {
                 self.didHide?()
             }
         })
+    }
+
+    private var contentHeight: CGFloat {
+        host.sizeThatFits(in: CGSize(width: 560, height: CGFloat.greatestFiniteMagnitude)).height.rounded(.up)
     }
 
     /// Keeps the top edge still: AppKit measures windows from the bottom-left corner.
