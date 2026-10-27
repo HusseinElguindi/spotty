@@ -78,13 +78,7 @@ final class PanelController: NSObject, NSWindowDelegate {
         panel.setFrame(NSRect(x: (visible.midX - 280).rounded(), y: top - height, width: 560, height: height),
                        display: false)
 
-        // Appears at once, at its final size: no fade, no movement. A zero-length animation
-        // also cancels a close fade still in flight.
-        NSAnimationContext.runAnimationGroup { context in
-            context.duration = 0
-            panel.animator().alphaValue = 1
-        }
-        panel.ignoresMouseEvents = false
+        // Appears at once, at its final size: no fade, no movement.
         if takesKey { panel.makeKeyAndOrderFront(nil) } else { panel.orderFrontRegardless() }
         installKeyMonitor()
     }
@@ -93,20 +87,10 @@ final class PanelController: NSObject, NSWindowDelegate {
         guard isShown else { return }
         isShown = false
         removeKeyMonitor()
-        // Done taking input the moment closing starts, not when the fade ends.
-        panel.ignoresMouseEvents = true
+        // Gone at once, no fade, so it stops taking input immediately.
         panel.makeFirstResponder(nil)
-        NSAnimationContext.runAnimationGroup({ context in
-            context.duration = 0.05
-            context.timingFunction = CAMediaTimingFunction(name: .easeOut)
-            panel.animator().alphaValue = 0
-        }, completionHandler: {
-            MainActor.assumeIsolated {
-                guard !self.isShown else { return }  // shown again mid-fade
-                self.panel.orderOut(nil)
-                self.didHide?()
-            }
-        })
+        panel.orderOut(nil)
+        didHide?()
     }
 
     var contentHeight: CGFloat {
