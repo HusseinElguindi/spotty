@@ -114,13 +114,6 @@ final class SearchModel {
         return "\(row.app.name) is first because you picked it for “\(typed)” \(times)."
     }
 
-    /// Esc: the first clears the field, the second closes. Returns true when it cleared.
-    func clear() -> Bool {
-        guard !query.isEmpty else { return false }
-        query = ""
-        return true
-    }
-
     func activateSelection(reveal: Bool = false) {
         switch tray {
         case .math(_, .value(_, let display, let copy)):

@@ -147,7 +147,10 @@ final class PanelController: NSObject, NSWindowDelegate {
         guard keyMonitor == nil else { return }
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             let handled = MainActor.assumeIsolated {
-                guard let self, event.window === self.panel else { return false }
+                // A key pressed straight after ⌘Space can arrive before macOS has tied it to the
+                // panel, with no window at all. While the panel is up it is the panel's key; only
+                // keys for another window (Settings) are left alone.
+                guard let self, self.isShown, event.window == nil || event.window === self.panel else { return false }
                 DispatchQueue.main.async { [weak self] in
                     guard let self else { return }
                     self.composingChanged?(self.isComposing)

@@ -61,25 +61,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// The keys a text field would otherwise swallow. Not called while an input method composes.
     private func handleKey(_ event: NSEvent) -> Bool {
-        let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
-        let command = flags == .command
-        switch Int(event.keyCode) {
-        case 125: model.move(1); return true        // ↓
-        case 126: model.move(-1); return true       // ↑
-        case 48: model.acceptGhost(); return true   // ⇥
-        case 53:                                    // esc
-            if !model.clear() { panel?.hide() }
-            return true
-        case 36, 76:                                // ↩ and ⌘↩
-            model.activateSelection(reveal: command)
-            return true
-        default:
-            break
+        let commandOnly = event.modifierFlags.intersection(.deviceIndependentFlagsMask) == .command
+        switch PanelKey.decide(keyCode: Int(event.keyCode), commandOnly: commandOnly,
+                               characters: event.charactersIgnoringModifiers, queryIsEmpty: model.query.isEmpty) {
+        case .moveDown: model.move(1)
+        case .moveUp: model.move(-1)
+        case .acceptCompletion: model.acceptGhost()
+        case .clear: model.query = ""
+        case .close: panel?.hide()
+        case .activate(let reveal): model.activateSelection(reveal: reveal)
+        case .copy: return model.copyResult()
+        case .openRecent(let n): return model.openRecent(n)
+        case .pass: return false
         }
-        guard command, let key = event.charactersIgnoringModifiers else { return false }
-        if key == "c" { return model.copyResult() }
-        if model.query.isEmpty, let n = Int(key), (1...5).contains(n) { return model.openRecent(n) }
-        return false
+        return true
     }
 
     func applicationWillTerminate(_ notification: Notification) {
