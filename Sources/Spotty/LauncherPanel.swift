@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import os
 
 /// A borderless panel that takes the keyboard without activating Spotty, so the app you were
 /// in stays frontmost and keeps its menu bar.
@@ -93,8 +94,35 @@ final class PanelController: NSObject, NSWindowDelegate {
         // Appears at once, at its final size: no fade, no movement. Never activates Spotty.
         panel.rejoinEverySpace()
         focusField()
-        if takesKey { panel.makeKeyAndOrderFront(nil) } else { panel.orderFrontRegardless() }
+        orderFront()
+        healSpace()
         installKeyMonitor()
+    }
+
+    private func orderFront() {
+        if takesKey { panel.makeKeyAndOrderFront(nil) } else { panel.orderFrontRegardless() }
+    }
+
+    private static let spaceLog = Logger(subsystem: "com.hus.spotty", category: "spaces")
+
+    /// The window server sometimes keeps the panel on one Space despite `canJoinAllSpaces`, and
+    /// then ⌘Space opens it on that Space, out of sight. Checked after every show, so it heals
+    /// whatever the trigger: first by re-registering for every Space, then by moving the panel to
+    /// the Space you are on.
+    private func healSpace() {
+        guard !panel.isOnActiveSpace else { return }
+        Self.spaceLog.error("Panel opened off the active Space; re-registering it for every Space")
+        panel.orderOut(nil)
+        panel.rejoinEverySpace()
+        orderFront()
+        guard !panel.isOnActiveSpace else { return }
+        Self.spaceLog.error("Still off the active Space; moving it to the active Space")
+        panel.orderOut(nil)
+        panel.collectionBehavior = [.moveToActiveSpace, .fullScreenAuxiliary, .ignoresCycle]
+        orderFront()
+        if !panel.isOnActiveSpace { Self.spaceLog.fault("Panel could not be brought to the active Space") }
+        // Back to every Space for next time; the window stays where it now is while shown.
+        panel.collectionBehavior = LauncherPanel.everySpace
     }
 
     /// Creates the window's backing and lays out the content once, invisibly, so the first ⌘Space
