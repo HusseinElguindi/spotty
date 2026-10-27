@@ -5,10 +5,12 @@ import SwiftUI
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private(set) var panel: PanelController?
     private(set) var hotKey: HotKey?
+    let indexer = Indexer()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Info.plist sets LSUIElement; this covers `swift run`, which has no Info.plist.
         NSApp.setActivationPolicy(.accessory)
+        indexer.start()
 
         let panel = PanelController(content: ShellView())
         self.panel = panel
