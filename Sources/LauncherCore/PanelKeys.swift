@@ -1,5 +1,5 @@
 /// What a key press in the panel means. Pure, so the decision is tested without AppKit; the app
-/// passes in the event's key code, whether ⌘ alone is held, and its characters.
+/// passes in the event's key code, whether ⌘ or ⌃ alone is held, and its characters.
 public enum PanelKey: Equatable, Sendable {
     case moveDown, moveUp, acceptCompletion
     /// Esc with text in the field.
@@ -14,7 +14,16 @@ public enum PanelKey: Equatable, Sendable {
     /// Not ours: the field gets it.
     case pass
 
-    public static func decide(keyCode: Int, commandOnly: Bool, characters: String?, queryIsEmpty: Bool) -> PanelKey {
+    public static func decide(keyCode: Int, commandOnly: Bool, controlOnly: Bool = false,
+                              characters: String?, queryIsEmpty: Bool) -> PanelKey {
+        // ⌃J and ⌃K move like vim. ⌃K would otherwise kill to the end of the line.
+        if controlOnly {
+            switch keyCode {
+            case 38: return .moveDown
+            case 40: return .moveUp
+            default: break
+            }
+        }
         switch keyCode {
         case 125: return .moveDown
         case 126: return .moveUp

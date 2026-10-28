@@ -2,8 +2,8 @@ import XCTest
 @testable import LauncherCore
 
 final class PanelKeysTests: XCTestCase {
-    func key(_ code: Int, command: Bool = false, _ chars: String? = nil, empty: Bool) -> PanelKey {
-        PanelKey.decide(keyCode: code, commandOnly: command, characters: chars, queryIsEmpty: empty)
+    func key(_ code: Int, command: Bool = false, control: Bool = false, _ chars: String? = nil, empty: Bool) -> PanelKey {
+        PanelKey.decide(keyCode: code, commandOnly: command, controlOnly: control, characters: chars, queryIsEmpty: empty)
     }
 
     func testEscClosesAnEmptyFieldWithOrWithoutCommandHeld() {
@@ -39,5 +39,12 @@ final class PanelKeysTests: XCTestCase {
         XCTAssertEqual(key(125, empty: false), .moveDown)
         XCTAssertEqual(key(126, empty: false), .moveUp)
         XCTAssertEqual(key(48, empty: false), .acceptCompletion)
+    }
+
+    func testControlJAndKMoveLikeVim() {
+        XCTAssertEqual(key(38, control: true, "j", empty: false), .moveDown)
+        XCTAssertEqual(key(40, control: true, "k", empty: false), .moveUp)
+        XCTAssertEqual(key(38, "j", empty: false), .pass, "plain j is typed")
+        XCTAssertEqual(key(40, command: true, "k", empty: false), .pass)
     }
 }
