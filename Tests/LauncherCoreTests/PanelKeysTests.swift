@@ -47,4 +47,10 @@ final class PanelKeysTests: XCTestCase {
         XCTAssertEqual(key(38, "j", empty: false), .pass, "plain j is typed")
         XCTAssertEqual(key(40, command: true, "k", empty: false), .pass)
     }
+
+    func testControlNAndPMoveLikeEmacs() {
+        XCTAssertEqual(key(45, control: true, "n", empty: false), .moveDown)
+        XCTAssertEqual(key(35, control: true, "p", empty: false), .moveUp)
+        XCTAssertEqual(key(45, "n", empty: false), .pass, "plain n is typed")
+    }
 }

@@ -16,11 +16,11 @@ public enum PanelKey: Equatable, Sendable {
 
     public static func decide(keyCode: Int, commandOnly: Bool, controlOnly: Bool = false,
                               characters: String?, queryIsEmpty: Bool) -> PanelKey {
-        // ⌃J and ⌃K move like vim. ⌃K would otherwise kill to the end of the line.
+        // ⌃J/⌃K move like vim, ⌃N/⌃P like Emacs. ⌃K would otherwise kill to the end of the line.
         if controlOnly {
             switch keyCode {
-            case 38: return .moveDown
-            case 40: return .moveUp
+            case 38, 45: return .moveDown
+            case 40, 35: return .moveUp
             default: break
             }
         }
