@@ -69,7 +69,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// The keys a text field would otherwise swallow. Not called while an input method composes.
     private func handleKey(_ event: NSEvent) -> Bool {
-        let modifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        // Caps Lock is left out so it doesn't turn ⌃K back into kill-line.
+        let modifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask).subtracting(.capsLock)
         switch PanelKey.decide(keyCode: Int(event.keyCode), commandOnly: modifiers == .command,
                                controlOnly: modifiers == .control,
                                characters: event.charactersIgnoringModifiers, queryIsEmpty: model.query.isEmpty) {

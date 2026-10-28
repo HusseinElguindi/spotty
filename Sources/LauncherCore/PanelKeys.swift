@@ -16,14 +16,6 @@ public enum PanelKey: Equatable, Sendable {
 
     public static func decide(keyCode: Int, commandOnly: Bool, controlOnly: Bool = false,
                               characters: String?, queryIsEmpty: Bool) -> PanelKey {
-        // ⌃J/⌃K move like vim, ⌃N/⌃P like Emacs. ⌃K would otherwise kill to the end of the line.
-        if controlOnly {
-            switch keyCode {
-            case 38, 45: return .moveDown
-            case 40, 35: return .moveUp
-            default: break
-            }
-        }
         switch keyCode {
         case 125: return .moveDown
         case 126: return .moveUp
@@ -34,7 +26,18 @@ public enum PanelKey: Equatable, Sendable {
         case 36, 76: return .activate(reveal: commandOnly)
         default: break
         }
-        guard commandOnly, let key = characters else { return .pass }
+        // By character, not key code, so the letters follow the keyboard layout as AppKit's own
+        // ⌃ and ⌘ bindings do. Lowercased, since Caps Lock uppercases them.
+        guard let key = characters?.lowercased() else { return .pass }
+        // ⌃J/⌃K move like vim, ⌃N/⌃P like Emacs. ⌃K would otherwise kill to the end of the line.
+        if controlOnly {
+            switch key {
+            case "j", "n": return .moveDown
+            case "k", "p": return .moveUp
+            default: return .pass
+            }
+        }
+        guard commandOnly else { return .pass }
         if key == "c" { return .copy }
         if queryIsEmpty, let n = Int(key), (1...5).contains(n) { return .openRecent(n) }
         return .pass

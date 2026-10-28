@@ -46,6 +46,9 @@ final class PanelKeysTests: XCTestCase {
         XCTAssertEqual(key(40, control: true, "k", empty: false), .moveUp)
         XCTAssertEqual(key(38, "j", empty: false), .pass, "plain j is typed")
         XCTAssertEqual(key(40, command: true, "k", empty: false), .pass)
+        XCTAssertEqual(key(40, control: true, "K", empty: false), .moveUp, "Caps Lock on")
+        XCTAssertEqual(key(8, control: true, "j", empty: false), .moveDown, "Dvorak's J is on QWERTY's C key")
+        XCTAssertEqual(key(0, control: true, "a", empty: false), .pass, "⌃A stays the field's")
     }
 
     func testControlNAndPMoveLikeEmacs() {
