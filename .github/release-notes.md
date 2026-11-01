@@ -1,10 +1,7 @@
-**What's new in 0.2.0**
+**What's new in 0.3.0**
 
-- New colours, from the Rex theme.
-- Spotty keeps what you typed when you close it with ⌘Space and reopen it.
-- You can drag the panel, and it snaps back into place.
-- The panel opens on the Space you're on, including after sleep and wake.
-- Esc, ⌘Space or a click elsewhere always closes the panel.
+- ⌘Space always opens the panel on the Space you're on. Before, it could sometimes open on another Space, out of sight.
+- ⌃J/⌃K and ⌃N/⌃P move the selection up and down, following your keyboard layout and working with Caps Lock on.
 
 Spotty opens apps and does sums from ⌘Space. Universal build for Apple silicon and Intel Macs, macOS 14 or later.
 
